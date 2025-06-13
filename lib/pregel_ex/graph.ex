@@ -11,11 +11,12 @@ defmodule PregelEx.Graph do
     vertex_id =
       :crypto.strong_rand_bytes(16)
       |> Base.encode16(case: :lower)
+      |> String.replace_prefix("", "vtx.")
 
     initial_value = Keyword.get(opts, :initial_value, %{})
 
     child_spec = %{
-      id: initial_value,
+      id: :unknown,
       start: {Vertex, :start_link, [{vertex_id, name, function, initial_value}]}
     }
 
