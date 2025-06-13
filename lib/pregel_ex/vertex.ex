@@ -20,19 +20,20 @@ defmodule PregelEx.Vertex do
       iex> PregelEx.Vertex.start_link({:vertex1, "Vertex 1", fn x -> x + 1 end, 0})
       {:ok, #PID<0.123.0>}
   """
-  def start_link({vertex_id, name, function, initial_value}) do
+  def start_link({graph_id, vertex_id, name, function, initial_value}) do
     GenServer.start_link(
       __MODULE__,
-      {vertex_id, name, function, initial_value},
-      name: {:via, Registry, {PregelEx.VertexRegistry, vertex_id}}
+      {graph_id, vertex_id, name, function, initial_value},
+      name: {:via, Registry, {PregelEx.VertexRegistry, {graph_id, vertex_id}}}
     )
   end
 
   ## Callbacks
 
   @impl true
-  def init({vertex_id, name, function, initial_value}) do
+  def init({graph_id, vertex_id, name, function, initial_value}) do
     state = %{
+      graph_id: graph_id,
       id: vertex_id,
       name: name,
       function: function,
