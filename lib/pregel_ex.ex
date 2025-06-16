@@ -66,16 +66,16 @@ defmodule PregelEx do
 
   @doc """
   Creates an edge between two vertices in a graph.
-  
+
   ## Parameters
   - graph_id: The ID of the graph containing the vertices
   - from_vertex_id: The source vertex ID
   - to_vertex_id: The destination vertex ID
   - weight: The weight/cost of the edge (defaults to 1)
   - properties: Additional metadata for the edge (defaults to empty map)
-  
+
   ## Examples
-  
+
       {:ok, edge} = PregelEx.create_edge(graph_id, "vtx.abc", "vtx.def", 2.5)
       {:ok, edge} = PregelEx.create_edge(graph_id, "vtx.abc", "vtx.def", 1, %{type: "friendship"})
   """

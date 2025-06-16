@@ -102,17 +102,17 @@ defmodule PregelEx.Graph do
 
   @doc """
   Creates an edge between two vertices in the graph.
-  
+
   This adds the edge to the source vertex's outgoing edges list.
   The edge contains the destination vertex ID, weight, and optional properties.
-  
+
   ## Parameters
   - graph_id: The ID of the graph containing the vertices
   - from_vertex_id: The source vertex ID
-  - to_vertex_id: The destination vertex ID  
+  - to_vertex_id: The destination vertex ID
   - weight: The weight/cost of the edge (defaults to 1)
   - properties: Additional metadata for the edge (defaults to empty map)
-  
+
   ## Returns
   - {:ok, edge} on success
   - {:error, reason} on failure
@@ -171,7 +171,7 @@ defmodule PregelEx.Graph do
   def list_edges(graph_id) do
     case list_vertices(graph_id) do
       {:ok, vertex_pids} ->
-        edges = 
+        edges =
           vertex_pids
           |> Enum.flat_map(fn pid ->
             case GenServer.call(pid, :get_outgoing_edges) do

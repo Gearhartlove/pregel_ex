@@ -89,7 +89,7 @@ defmodule PregelExTest do
     assert vertex_state.name == "vertex_1"
     assert vertex_state.value == %{}
     assert vertex_state.state == :inactive
-    assert vertex_state.neighbors == []
+    assert vertex_state.outgoing_edges == %{}
 
     # Test that the function behaves the same way
     assert vertex_state.function.(nil) == function.(nil)
@@ -126,7 +126,7 @@ defmodule PregelExTest do
     assert vertex_state_1.name == "vertex_1"
     assert vertex_state_1.value == %{}
     assert vertex_state_1.state == :inactive
-    assert vertex_state_1.neighbors == []
+    assert vertex_state_1.outgoing_edges == %{}
 
     ## Test that the function behaves the same way
     assert vertex_state_1.function.(nil) == function_1.(nil)
@@ -145,7 +145,7 @@ defmodule PregelExTest do
     assert vertex_state_2.name == "vertex_2"
     assert vertex_state_2.value == %{}
     assert vertex_state_2.state == :inactive
-    assert vertex_state_2.neighbors == []
+    assert vertex_state_2.outgoing_edges == %{}
 
     ## Test that the function behaves the same way
     assert vertex_state_2.function.(nil) == function_2.(nil)
@@ -239,54 +239,54 @@ defmodule PregelExTest do
   test "006 create and manage edges" do
     assert [] = Supervisor.which_children(PregelEx.GraphSupervisor)
     {:ok, _pid, graph_id} = PregelEx.create_graph("graph_with_edges")
-    
+
     # Create three vertices
     function = fn x -> x + 1 end
     {:ok, vertex_id_1, _} = PregelEx.create_vertex(graph_id, "vertex_1", function)
     {:ok, vertex_id_2, _} = PregelEx.create_vertex(graph_id, "vertex_2", function)
     {:ok, vertex_id_3, _} = PregelEx.create_vertex(graph_id, "vertex_3", function)
-    
+
     # Create edges: 1 -> 2 (weight 1.5), 1 -> 3 (weight 2.0), 2 -> 3 (weight 0.5)
     {:ok, edge_1_2} = PregelEx.create_edge(graph_id, vertex_id_1, vertex_id_2, 1.5)
     {:ok, edge_1_3} = PregelEx.create_edge(graph_id, vertex_id_1, vertex_id_3, 2.0)
     {:ok, edge_2_3} = PregelEx.create_edge(graph_id, vertex_id_2, vertex_id_3, 0.5)
-    
+
     # Verify edge structure
     assert edge_1_2.from_vertex_id == vertex_id_1
     assert edge_1_2.to_vertex_id == vertex_id_2
     assert edge_1_2.weight == 1.5
     assert edge_1_2.properties == %{}
-    
+
     # Test vertex neighbors
     {:ok, neighbors_1} = PregelEx.get_vertex_neighbors(graph_id, vertex_id_1)
     {:ok, neighbors_2} = PregelEx.get_vertex_neighbors(graph_id, vertex_id_2)
     {:ok, neighbors_3} = PregelEx.get_vertex_neighbors(graph_id, vertex_id_3)
-    
+
     assert length(neighbors_1) == 2
     assert vertex_id_2 in neighbors_1
     assert vertex_id_3 in neighbors_1
     assert length(neighbors_2) == 1
     assert vertex_id_3 in neighbors_2
     assert length(neighbors_3) == 0
-    
+
     # Test outgoing edges for vertex 1
     {:ok, edges_1} = PregelEx.get_vertex_edges(graph_id, vertex_id_1)
     assert length(edges_1) == 2
-    
+
     # Test graph-wide edge listing
     {:ok, all_edges} = PregelEx.list_edges(graph_id)
     assert length(all_edges) == 3
-    
+
     # Test edge removal
     {:ok, removed_edge} = PregelEx.remove_edge(graph_id, vertex_id_1, vertex_id_2)
     assert removed_edge.to_vertex_id == vertex_id_2
-    
+
     # Verify edge was removed
     {:ok, neighbors_1_after} = PregelEx.get_vertex_neighbors(graph_id, vertex_id_1)
     assert length(neighbors_1_after) == 1
     assert vertex_id_2 not in neighbors_1_after
     assert vertex_id_3 in neighbors_1_after
-    
+
     {:ok, all_edges_after} = PregelEx.list_edges(graph_id)
     assert length(all_edges_after) == 2
   end

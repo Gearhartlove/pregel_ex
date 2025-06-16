@@ -3,21 +3,34 @@ defmodule PregelEx.Vertex do
 
   @doc """
   start_link/1 starts a new vertex process with the given parameters.
+  
   It takes a tuple containing the vertex ID, name, function to compute the value,
   and an initial value for the vertex.
-  The vertex ID is a unique identifier for the vertex, the name is a human-readable
-  name, the function is a callback that will be used to compute the vertex's value,
-  and the initial value is the starting state of the vertex.
+  
+  The vertex state includes:
+  - graph_id: ID of the graph this vertex belongs to
+  - id: A unique identifier for the vertex
+  - name: A human-readable name for the vertex
+  - function: A callback that will be used to compute the vertex's value
+  - value: The current value/state of the vertex
+  - state: The vertex state (:active or :inactive)
+  - outgoing_edges: A map of destination vertex IDs to Edge structs
+  - incoming_messages: Messages received in the current superstep
+  - outgoing_messages: Messages to send in the next superstep
+  
   ## Parameters
-  - vertex_id: A unique identifier for the vertex.
-  - name: A human-readable name for the vertex.
-  - function: A function that takes the current value and returns a new value.
-  - initial_value: The initial value of the vertex.
+  - graph_id: The ID of the graph containing this vertex
+  - vertex_id: A unique identifier for the vertex
+  - name: A human-readable name for the vertex
+  - function: A function that takes the current value and returns a new value
+  - initial_value: The initial value of the vertex
+  
   ## Returns
-  - `{:ok, pid}` on success, where `pid` is the process identifier of the vertex.
-  - `{:error, reason}` on failure, where `reason` is the error reason.
+  - `{:ok, pid}` on success, where `pid` is the process identifier of the vertex
+  - `{:error, reason}` on failure, where `reason` is the error reason
+  
   ## Example
-      iex> PregelEx.Vertex.start_link({:vertex1, "Vertex 1", fn x -> x + 1 end, 0})
+      iex> PregelEx.Vertex.start_link({"graph1", "vtx.123", "Vertex 1", fn x -> x + 1 end, 0})
       {:ok, #PID<0.123.0>}
   """
   def start_link({graph_id, vertex_id, name, function, initial_value}) do
@@ -39,7 +52,6 @@ defmodule PregelEx.Vertex do
       function: function,
       value: initial_value,
       state: :inactive,
-      neighbors: [],           # Keep for backward compatibility, will be deprecated
       outgoing_edges: %{},     # Map of destination_vertex_id -> Edge struct
       incoming_messages: [],   # Messages received this superstep
       outgoing_messages: []    # Messages to send next superstep
