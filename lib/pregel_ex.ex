@@ -65,6 +65,53 @@ defmodule PregelEx do
   end
 
   @doc """
+  Creates an edge between two vertices in a graph.
+  
+  ## Parameters
+  - graph_id: The ID of the graph containing the vertices
+  - from_vertex_id: The source vertex ID
+  - to_vertex_id: The destination vertex ID
+  - weight: The weight/cost of the edge (defaults to 1)
+  - properties: Additional metadata for the edge (defaults to empty map)
+  
+  ## Examples
+  
+      {:ok, edge} = PregelEx.create_edge(graph_id, "vtx.abc", "vtx.def", 2.5)
+      {:ok, edge} = PregelEx.create_edge(graph_id, "vtx.abc", "vtx.def", 1, %{type: "friendship"})
+  """
+  def create_edge(graph_id, from_vertex_id, to_vertex_id, weight \\ 1, properties \\ %{}) do
+    Graph.create_edge(graph_id, from_vertex_id, to_vertex_id, weight, properties)
+  end
+
+  @doc """
+  Removes an edge between two vertices.
+  """
+  def remove_edge(graph_id, from_vertex_id, to_vertex_id) do
+    Graph.remove_edge(graph_id, from_vertex_id, to_vertex_id)
+  end
+
+  @doc """
+  Gets all outgoing edges for a vertex.
+  """
+  def get_vertex_edges(graph_id, vertex_id) do
+    Graph.get_vertex_edges(graph_id, vertex_id)
+  end
+
+  @doc """
+  Gets all neighbor vertex IDs for a vertex.
+  """
+  def get_vertex_neighbors(graph_id, vertex_id) do
+    Graph.get_vertex_neighbors(graph_id, vertex_id)
+  end
+
+  @doc """
+  Lists all edges in the graph.
+  """
+  def list_edges(graph_id) do
+    Graph.list_edges(graph_id)
+  end
+
+  @doc """
   Lists all vertices in a graph.
   """
   def list_vertices(graph_id) do
