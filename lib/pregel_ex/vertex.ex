@@ -46,7 +46,7 @@ defmodule PregelEx.Vertex do
   end
 
   @impl true
-  def handle_call({:compute}, _from, state) do
+  def handle_call(:compute, _from, state) do
     function = state.function
     new_value = function.(state.value)
     new_state = %{state | value: new_value, state: :inactive}

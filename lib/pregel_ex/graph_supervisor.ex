@@ -22,6 +22,7 @@ defmodule PregelEx.GraphSupervisor do
     case Registry.lookup(PregelEx.GraphRegistry, graph_id) do
       [{pid, _}] ->
         DynamicSupervisor.terminate_child(__MODULE__, pid)
+
       [] ->
         {:error, :graph_not_found}
     end
@@ -36,6 +37,14 @@ defmodule PregelEx.GraphSupervisor do
     __MODULE__
     |> DynamicSupervisor.which_children()
     |> length()
+  end
+
+  def stop_all_graphs do
+    __MODULE__
+    |> DynamicSupervisor.which_children()
+    |> Enum.each(fn {_id, pid, _type, _modules} ->
+      DynamicSupervisor.terminate_child(__MODULE__, pid)
+    end)
   end
 
   @impl true
