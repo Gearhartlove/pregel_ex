@@ -190,12 +190,28 @@ defmodule PregelEx.Graph do
     end
   end
 
+  @doc """
+  Sends a message from one vertex to another.
+  """
   def send_message(graph_id, from_vertex_id, to_vertex_id, content) do
     with {:ok, from_pid} <- get_vertex_pid(graph_id, from_vertex_id),
          {:ok, _to_pid} <- get_vertex_pid(graph_id, to_vertex_id) do
       GenServer.call(from_pid, {:send_message, to_vertex_id, content})
     else
       error -> error
+    end
+  end
+
+  @doc """
+  Clears all outgoing messages for a vertex.
+  """
+  def clear_outgoing_messages(graph_id, vertex_id) do
+    case get_vertex_pid(graph_id, vertex_id) do
+      {:ok, pid} ->
+        GenServer.call(pid, :clear_outgoing_messages)
+
+      {:error, :not_found} ->
+        {:error, :vertex_not_found}
     end
   end
 

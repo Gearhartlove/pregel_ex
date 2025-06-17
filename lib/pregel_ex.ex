@@ -131,4 +131,11 @@ defmodule PregelEx do
   def send_message(graph_id, from_vertex_id, to_vertex_id, content) do
     Graph.send_message(graph_id, from_vertex_id, to_vertex_id, content)
   end
+
+  @doc """
+  Clears all outgoing messages for a vertex in the specified graph.
+  """
+  def clear_outgoing_messages(graph_id, vertex_id) do
+    Graph.clear_outgoing_messages(graph_id, vertex_id)
+  end
 end

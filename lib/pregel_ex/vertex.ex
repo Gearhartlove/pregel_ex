@@ -95,4 +95,8 @@ defmodule PregelEx.Vertex do
     new_outgoing = [message | state.outgoing_messages]
     {:reply, :ok, %{state | outgoing_messages: new_outgoing}}
   end
+
+  def handle_call(:clear_outgoing_messages, _from, state) do
+    {:reply, :ok, %{state | outgoing_messages: []}}
+  end
 end

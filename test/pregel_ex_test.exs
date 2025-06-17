@@ -310,5 +310,10 @@ defmodule PregelExTest do
     assert length(vertex_state_1.outgoing_messages) == 1
     assert length(vertex_state_2.outgoing_messages) == 0
     assert hd(vertex_state_1.outgoing_messages).content == message
+
+    # Clear outgoing messages for vertex 1
+    PregelEx.clear_outgoing_messages(graph_id, vertex_id_1)
+    {:ok, vertex_state_1_after} = PregelEx.get_vertex_state(graph_id, vertex_id_1)
+    assert length(vertex_state_1_after.outgoing_messages) == 0
   end
 end
