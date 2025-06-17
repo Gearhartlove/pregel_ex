@@ -17,11 +17,11 @@ defmodule PregelEx.Edge do
   ]
 
   @type t :: %__MODULE__{
-    from_vertex_id: String.t(),
-    to_vertex_id: String.t(),
-    weight: number(),
-    properties: map()
-  }
+          from_vertex_id: String.t(),
+          to_vertex_id: String.t(),
+          weight: number(),
+          properties: map()
+        }
 
   @doc """
   Creates a new edge with the given parameters.

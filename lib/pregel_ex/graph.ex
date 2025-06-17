@@ -136,6 +136,7 @@ defmodule PregelEx.Graph do
     case get_vertex_pid(graph_id, from_vertex_id) do
       {:ok, from_pid} ->
         GenServer.call(from_pid, {:remove_outgoing_edge, to_vertex_id})
+
       {:error, :not_found} ->
         {:error, :vertex_not_found}
     end
@@ -148,6 +149,7 @@ defmodule PregelEx.Graph do
     case get_vertex_pid(graph_id, vertex_id) do
       {:ok, pid} ->
         GenServer.call(pid, :get_outgoing_edges)
+
       {:error, :not_found} ->
         {:error, :vertex_not_found}
     end
@@ -160,6 +162,7 @@ defmodule PregelEx.Graph do
     case get_vertex_pid(graph_id, vertex_id) do
       {:ok, pid} ->
         GenServer.call(pid, :get_neighbors)
+
       {:error, :not_found} ->
         {:error, :vertex_not_found}
     end
@@ -179,7 +182,19 @@ defmodule PregelEx.Graph do
               _ -> []
             end
           end)
+
         {:ok, edges}
+
+      error ->
+        error
+    end
+  end
+
+  def send_message(graph_id, from_vertex_id, to_vertex_id, content) do
+    with {:ok, from_pid} <- get_vertex_pid(graph_id, from_vertex_id),
+         {:ok, _to_pid} <- get_vertex_pid(graph_id, to_vertex_id) do
+      GenServer.call(from_pid, {:send_message, to_vertex_id, content})
+    else
       error -> error
     end
   end

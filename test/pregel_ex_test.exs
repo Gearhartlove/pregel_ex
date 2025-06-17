@@ -248,8 +248,8 @@ defmodule PregelExTest do
 
     # Create edges: 1 -> 2 (weight 1.5), 1 -> 3 (weight 2.0), 2 -> 3 (weight 0.5)
     {:ok, edge_1_2} = PregelEx.create_edge(graph_id, vertex_id_1, vertex_id_2, 1.5)
-    {:ok, edge_1_3} = PregelEx.create_edge(graph_id, vertex_id_1, vertex_id_3, 2.0)
-    {:ok, edge_2_3} = PregelEx.create_edge(graph_id, vertex_id_2, vertex_id_3, 0.5)
+    {:ok, _edge_1_3} = PregelEx.create_edge(graph_id, vertex_id_1, vertex_id_3, 2.0)
+    {:ok, _edge_2_3} = PregelEx.create_edge(graph_id, vertex_id_2, vertex_id_3, 0.5)
 
     # Verify edge structure
     assert edge_1_2.from_vertex_id == vertex_id_1
@@ -289,5 +289,26 @@ defmodule PregelExTest do
 
     {:ok, all_edges_after} = PregelEx.list_edges(graph_id)
     assert length(all_edges_after) == 2
+  end
+
+  test "007 sent message between vertexes" do
+    assert [] = Supervisor.which_children(PregelEx.GraphSupervisor)
+    {:ok, _pid, graph_id} = PregelEx.create_graph("graph_with_messages")
+
+    # Create two vertices
+    function = fn _ -> :ok end
+    {:ok, vertex_id_1, _} = PregelEx.create_vertex(graph_id, "vertex_1", function)
+    {:ok, vertex_id_2, _} = PregelEx.create_vertex(graph_id, "vertex_2", function)
+
+    # Send message from vertex 1 to vertex 2
+    message = "Howdy World!"
+    PregelEx.send_message(graph_id, vertex_id_1, vertex_id_2, message)
+
+    # Verify that the message was sent
+    {:ok, vertex_state_1} = PregelEx.get_vertex_state(graph_id, vertex_id_1)
+    {:ok, vertex_state_2} = PregelEx.get_vertex_state(graph_id, vertex_id_2)
+    assert length(vertex_state_1.outgoing_messages) == 1
+    assert length(vertex_state_2.outgoing_messages) == 0
+    assert hd(vertex_state_1.outgoing_messages).content == message
   end
 end

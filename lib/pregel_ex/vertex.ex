@@ -1,38 +1,21 @@
 defmodule PregelEx.Vertex do
   use GenServer
 
-  @doc """
-  start_link/1 starts a new vertex process with the given parameters.
-  
-  It takes a tuple containing the vertex ID, name, function to compute the value,
-  and an initial value for the vertex.
-  
-  The vertex state includes:
-  - graph_id: ID of the graph this vertex belongs to
-  - id: A unique identifier for the vertex
-  - name: A human-readable name for the vertex
-  - function: A callback that will be used to compute the vertex's value
-  - value: The current value/state of the vertex
-  - state: The vertex state (:active or :inactive)
-  - outgoing_edges: A map of destination vertex IDs to Edge structs
-  - incoming_messages: Messages received in the current superstep
-  - outgoing_messages: Messages to send in the next superstep
-  
-  ## Parameters
-  - graph_id: The ID of the graph containing this vertex
-  - vertex_id: A unique identifier for the vertex
-  - name: A human-readable name for the vertex
-  - function: A function that takes the current value and returns a new value
-  - initial_value: The initial value of the vertex
-  
-  ## Returns
-  - `{:ok, pid}` on success, where `pid` is the process identifier of the vertex
-  - `{:error, reason}` on failure, where `reason` is the error reason
-  
-  ## Example
-      iex> PregelEx.Vertex.start_link({"graph1", "vtx.123", "Vertex 1", fn x -> x + 1 end, 0})
-      {:ok, #PID<0.123.0>}
-  """
+  alias PregelEx.Message
+
+  defstruct [
+    :graph_id,
+    :id,
+    :name,
+    :function,
+    :value,
+    :state, # active or inactive
+    :outgoing_edges,
+    :incoming_messages,
+    :outgoing_messages,
+    :superstep
+  ]
+
   def start_link({graph_id, vertex_id, name, function, initial_value}) do
     GenServer.start_link(
       __MODULE__,
@@ -45,7 +28,7 @@ defmodule PregelEx.Vertex do
 
   @impl true
   def init({graph_id, vertex_id, name, function, initial_value}) do
-    state = %{
+    vertex = %__MODULE__{
       graph_id: graph_id,
       id: vertex_id,
       name: name,
@@ -54,10 +37,11 @@ defmodule PregelEx.Vertex do
       state: :inactive,
       outgoing_edges: %{},     # Map of destination_vertex_id -> Edge struct
       incoming_messages: [],   # Messages received this superstep
-      outgoing_messages: []    # Messages to send next superstep
+      outgoing_messages: [],    # Messages to send next superstep
+      superstep: 0
     }
 
-    {:ok, state}
+    {:ok, vertex}
   end
 
   @impl true
@@ -102,5 +86,13 @@ defmodule PregelEx.Vertex do
   def handle_call(:get_neighbors, _from, state) do
     neighbor_ids = Map.keys(state.outgoing_edges)
     {:reply, {:ok, neighbor_ids}, state}
+  end
+
+  @impl true
+  def handle_call({:send_message, to_vertex_id, content}, _from, state) do
+    message = Message.new(state.id, to_vertex_id, content, state.superstep)
+    # kgf: I'm not sure if I like concattenating the message to the outgoing messages list.
+    new_outgoing = [message | state.outgoing_messages]
+    {:reply, :ok, %{state | outgoing_messages: new_outgoing}}
   end
 end
