@@ -257,13 +257,10 @@ defmodule PregelEx.Graph do
       {:ok, vertex_pids} ->
         vertex_pids
         |> Enum.filter(fn pid ->
-          case GenServer.call(pid, :get_state) do
-            {:ok, state} -> state.state == :active
-            _ -> false
+          case GenServer.call(pid, :active?) do
+            true -> GenServer.call(pid, :compute)
+            false -> :ok
           end
-        end)
-        |> Enum.each(fn pid ->
-          GenServer.call(pid, :compute)
         end)
 
         :ok
@@ -416,7 +413,22 @@ defmodule PregelEx.Graph do
   end
 
   def check_termination_condition(graph_id) do
-    # TODO
+    case list_vertices(graph_id) do
+      {:ok, vertex_pids} ->
+        active_count =
+          vertex_pids
+          |> Enum.count(fn pid ->
+            GenServer.call(pid, :active?)
+          end)
+
+        if active_count == 0 do
+          {:halted, "All vertices inactive, terminating graph #{graph_id}"}
+        else
+          {:continue, "#{active_count} active vertices remain, continuing superstep for graph #{graph_id}"}
+        end
+
+      error -> error
+    end
     :ok
   end
 end

@@ -88,7 +88,7 @@ defmodule PregelExTest do
     assert vertex_state.id == vertex_id
     assert vertex_state.name == "vertex_1"
     assert vertex_state.value == %{}
-    assert vertex_state.state == :inactive
+    assert vertex_state.active == true
     assert vertex_state.outgoing_edges == %{}
 
     # Test that the function behaves the same way
@@ -113,7 +113,7 @@ defmodule PregelExTest do
     assert length(Supervisor.which_children(PregelEx.GraphSupervisor)) == 1
 
     # Add first vertex
-    function_1 = fn _ -> 1 end
+    function_1 = fn _ -> {:ok, 1} end
     {:ok, vertex_id_1, vertex_pid_1} = PregelEx.create_vertex(graph_id, "vertex_1", function_1)
     assert is_binary(vertex_id_1)
     assert is_pid(vertex_pid_1)
@@ -125,14 +125,14 @@ defmodule PregelExTest do
     assert vertex_state_1.id == vertex_id_1
     assert vertex_state_1.name == "vertex_1"
     assert vertex_state_1.value == %{}
-    assert vertex_state_1.state == :inactive
+    assert vertex_state_1.active == true
     assert vertex_state_1.outgoing_edges == %{}
 
     ## Test that the function behaves the same way
     assert vertex_state_1.function.(nil) == function_1.(nil)
 
     # Add second vertex
-    function_2 = fn _ -> 2 end
+    function_2 = fn _ -> {:ok, 2} end
     {:ok, vertex_id_2, vertex_pid_2} = PregelEx.create_vertex(graph_id, "vertex_2", function_2)
     assert is_binary(vertex_id_2)
     assert is_pid(vertex_pid_2)
@@ -144,7 +144,7 @@ defmodule PregelExTest do
     assert vertex_state_2.id == vertex_id_2
     assert vertex_state_2.name == "vertex_2"
     assert vertex_state_2.value == %{}
-    assert vertex_state_2.state == :inactive
+    assert vertex_state_2.active == true
     assert vertex_state_2.outgoing_edges == %{}
 
     ## Test that the function behaves the same way
@@ -187,14 +187,14 @@ defmodule PregelExTest do
       v1_id,
       _
     } =
-      PregelEx.create_vertex(graph_id_a, "vertex_1", fn _ -> 1 end)
+      PregelEx.create_vertex(graph_id_a, "vertex_1", fn _ -> {:ok, 1} end)
 
     {
       :ok,
       v2_id,
       _
     } =
-      PregelEx.create_vertex(graph_id_a, "vertex_2", fn _ -> 2 end)
+      PregelEx.create_vertex(graph_id_a, "vertex_2", fn _ -> {:ok, 2} end)
 
     # Graph B vertices
     {
@@ -202,14 +202,14 @@ defmodule PregelExTest do
       v3_id,
       _
     } =
-      PregelEx.create_vertex(graph_id_b, "vertex_3", fn _ -> 3 end)
+      PregelEx.create_vertex(graph_id_b, "vertex_3", fn _ -> {:ok, 3} end)
 
     {
       :ok,
       v4_id,
       _
     } =
-      PregelEx.create_vertex(graph_id_b, "vertex_4", fn _ -> 4 end)
+      PregelEx.create_vertex(graph_id_b, "vertex_4", fn _ -> {:ok, 4} end)
 
     # Verify results of both graph's vertices
     v1_result = PregelEx.compute_vertex(graph_id_a, v1_id)

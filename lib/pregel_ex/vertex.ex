@@ -9,14 +9,12 @@ defmodule PregelEx.Vertex do
     :name,
     :function,
     :value,
-    # active or inactive
-    :state,
     :outgoing_edges,
-    # Messages received but not yet processed
     :pending_messages,
     :incoming_messages,
     :outgoing_messages,
-    :superstep
+    :superstep,
+    :active
   ]
 
   def start_link({graph_id, vertex_id, name, function, initial_value}) do
@@ -37,7 +35,6 @@ defmodule PregelEx.Vertex do
       name: name,
       function: function,
       value: initial_value,
-      state: :inactive,
       # Messages received but not yet processed
       pending_messages: [],
       # Messages received this superstep
@@ -46,18 +43,44 @@ defmodule PregelEx.Vertex do
       outgoing_edges: %{},
       # Messages to send next superstep
       outgoing_messages: [],
-      superstep: 0
+      superstep: 0,
+      active: true
     }
 
     {:ok, vertex}
   end
 
   @impl true
-  def handle_call(:compute, _from, state) do
-    function = state.function
-    new_value = function.(state.value)
-    new_state = %{state | value: new_value, state: :inactive}
-    {:reply, {:ok, new_value}, new_state}
+  def handle_call(:compute, _from, %{active: true} = state) do
+    result = state.function.({state.value, state.incoming_messages, state.id})
+
+    case result do
+      {:ok, new_value} ->
+        {:reply, {:ok, new_value}, %{state | value: new_value}}
+
+      {:ok, new_value, :halt} ->
+        {:reply, {:ok, new_value}, %{state | value: new_value, active: false}}
+
+      {:ok, new_value, messages_to_send}
+      when is_list(messages_to_send) ->
+        outgoing_messages =
+          Enum.map(messages_to_send, fn {to_vertex_id, content} ->
+            Message.new(state.id, to_vertex_id, content, state.superstep)
+          end)
+
+        {
+          :reply,
+          {:ok, new_value},
+          %{
+            state
+            | value: new_value,
+              outgoing_messages: state.outgoing_messages ++ outgoing_messages
+          }
+        }
+
+      error ->
+        {:reply, {:error, error}, state}
+    end
   end
 
   @impl true
@@ -120,13 +143,30 @@ defmodule PregelEx.Vertex do
   end
 
   def handle_call(:advance_superstep, _from, state) do
+    has_messages = length(state.pending_messages) > 0
+
     new_state = %{
       state
       | superstep: state.superstep + 1,
         incoming_messages: state.pending_messages,
-        pending_messages: []
+        pending_messages: [],
+        active: has_messages or state.active
     }
 
+    {:reply, :ok, new_state}
+  end
+
+  def handle_call(:active?, _from, state) do
+    {:reply, state.active, state}
+  end
+
+  def handle_call(:vote_to_halt, _from, state) do
+    new_state = %{state | active: false}
+    {:reply, :ok, new_state}
+  end
+
+  def handle_call(:activate, _from, state) do
+    new_state = %{state | active: true}
     {:reply, :ok, new_state}
   end
 end
