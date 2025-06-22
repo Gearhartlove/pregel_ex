@@ -138,4 +138,19 @@ defmodule PregelEx do
   def clear_outgoing_messages(graph_id, vertex_id) do
     Graph.clear_outgoing_messages(graph_id, vertex_id)
   end
+
+  @doc """
+  Executes a superstep for the given graph.
+
+  ## Parameters
+
+    - `graph_id`: The identifier of the graph on which to execute the superstep.
+
+  ## Returns
+
+    - The result of executing the superstep, as returned by `Graph.execute_superstep/1`.
+  """
+  def execute_superstep(graph_id) do
+    Graph.execute_superstep(graph_id)
+  end
 end

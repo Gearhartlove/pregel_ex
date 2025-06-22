@@ -291,7 +291,7 @@ defmodule PregelExTest do
     assert length(all_edges_after) == 2
   end
 
-  test "007 sent message between vertexes" do
+  test "007 sent message between vertices" do
     assert [] = Supervisor.which_children(PregelEx.GraphSupervisor)
     {:ok, _pid, graph_id} = PregelEx.create_graph("graph_with_messages")
 
@@ -304,16 +304,21 @@ defmodule PregelExTest do
     message = "Howdy World!"
     PregelEx.send_message(graph_id, vertex_id_1, vertex_id_2, message)
 
-    # Verify that the message was sent
+    # Verify message is queued
     {:ok, vertex_state_1} = PregelEx.get_vertex_state(graph_id, vertex_id_1)
-    {:ok, vertex_state_2} = PregelEx.get_vertex_state(graph_id, vertex_id_2)
     assert length(vertex_state_1.outgoing_messages) == 1
-    assert length(vertex_state_2.outgoing_messages) == 0
-    assert hd(vertex_state_1.outgoing_messages).content == message
+    assert vertex_state_1.outgoing_messages |> hd() |> Map.get(:content) == message
 
-    # Clear outgoing messages for vertex 1
-    PregelEx.clear_outgoing_messages(graph_id, vertex_id_1)
-    {:ok, vertex_state_1_after} = PregelEx.get_vertex_state(graph_id, vertex_id_1)
-    assert length(vertex_state_1_after.outgoing_messages) == 0
+    # Execute superstep (routes messages)
+    PregelEx.execute_superstep(graph_id)
+
+    # Verify message was delivered
+    {:ok, vertex_state_2} = PregelEx.get_vertex_state(graph_id, vertex_id_2)
+    assert length(vertex_state_2.incoming_messages) == 1
+    assert vertex_state_2.incoming_messages |> hd() |> Map.get(:content) == message
+
+    # Verify vertex 1 has no outgoing messages after superstep
+    {:ok, vertex_state_1} = PregelEx.get_vertex_state(graph_id, vertex_id_1)
+    assert length(vertex_state_1.outgoing_messages) == 0
   end
 end
