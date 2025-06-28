@@ -39,6 +39,8 @@ defmodule PregelEx do
   @doc """
   Creates a vertex in the specified graph.
   """
+  @spec create_vertex(String.t(), String.t(), (map() -> map()), keyword()) ::
+          {:ok, String.t(), pid()} | {:error, atom()}
   def create_vertex(graph_id, name, function, opts \\ []) do
     Graph.create_vertex(graph_id, name, function, opts)
   end
@@ -152,5 +154,21 @@ defmodule PregelEx do
   """
   def execute_superstep(graph_id) do
     Graph.execute_superstep(graph_id)
+  end
+
+  def initialize_graph(graph_id, initial_state \\ %{}) do
+    Graph.initialize_graph(graph_id, initial_state)
+  end
+
+  def run(graph_id, initial_state \\ %{}, opts \\ []) do
+    Graph.run(graph_id, initial_state, opts)
+  end
+
+  def create_start_vertex(graph_id, initial_value \\ %{}) do
+    create_vertex(graph_id, "start_vertex", fn _ -> initial_value end, value: initial_value)
+  end
+
+  def create_end_vertex(graph_id, initial_value \\ %{}) do
+    create_vertex(graph_id, "end_vertex", fn context -> context.aggregated_messages end, value: initial_value)
   end
 end

@@ -14,7 +14,7 @@ defmodule PregelEx.Vertex do
     :incoming_messages,
     :outgoing_messages,
     :superstep,
-    :active
+    :active,
   ]
 
   def start_link({graph_id, vertex_id, name, function, initial_value}) do
@@ -44,42 +44,81 @@ defmodule PregelEx.Vertex do
       # Messages to send next superstep
       outgoing_messages: [],
       superstep: 0,
-      active: true
+      active: true,
     }
 
     {:ok, vertex}
   end
 
+
+  @impl true
+  def handle_call(:compute, _from, %{active: true, incoming_messages: []} = state) do
+    state = %{state | active: false}
+    {:reply, {:ok, :halt, state.value}, state}
+  end
+
+  defp aggregate_incoming_messages([]), do: nil
+
+  defp aggregate_incoming_messages(messages) do
+    # Extract message contents and aggregate them
+    contents = Enum.map(messages, & &1.content)
+
+    # Choose aggregation strategy based on content type
+    case List.first(contents) do
+      value when is_number(value) ->
+        Enum.sum(contents)  # Sum numeric values
+
+      value when is_map(value) ->
+        Enum.reduce(contents, %{}, &Map.merge/2)  # Merge maps
+
+      _ ->
+        contents  # Return list for other types
+    end
+  end
+
   @impl true
   def handle_call(:compute, _from, %{active: true} = state) do
-    result = state.function.({state.value, state.incoming_messages, state.id})
+    aggregated_messages = aggregate_incoming_messages(state.incoming_messages)
+
+    context = %{
+      value: state.value,
+      raw_messages: state.incoming_messages,
+      aggregated_messages: aggregated_messages,
+      vertex_id: state.id,
+      superstep: state.superstep,
+      outgoing_edges: state.outgoing_edges
+    }
+
+    # NOTE: the messages adon't look they are auto merging right now.
+
+    IO.puts("Vertex #{state.id} computing with context: #{inspect(context)}")
+
+    result = state.function.(context)
+    state_value = state.value
 
     case result do
-      {:ok, new_value} ->
-        {:reply, {:ok, new_value}, %{state | value: new_value}}
+      :halt ->
+        {:reply, {:ok, :halt, state.value}, %{state | active: false}}
 
-      {:ok, new_value, :halt} ->
-        {:reply, {:ok, new_value}, %{state | value: new_value, active: false}}
+      ^state_value ->
+        messages = create_messages_to_neighbors(state, state.value)
 
-      {:ok, new_value, messages_to_send}
-      when is_list(messages_to_send) ->
-        outgoing_messages =
-          Enum.map(messages_to_send, fn {to_vertex_id, content} ->
-            Message.new(state.id, to_vertex_id, content, state.superstep)
-          end)
+        {:reply, {:ok, state.value, messages},
+         %{state | outgoing_messages: messages, active: false}}
 
-        {
-          :reply,
-          {:ok, new_value},
-          %{
-            state
-            | value: new_value,
-              outgoing_messages: state.outgoing_messages ++ outgoing_messages
-          }
-        }
+      new_value ->
+        # AUTO-MERGE STATE STRATEGY
+        # TODO: create add merge strategy api to configure how merge is done
+        # merged_state = merge_with_strategy(
+        #   state.value,
+        #   new_value,
+        #   state.merge_strategy
+        # )
+        merged_value = Map.merge(state.value, new_value)
+        outgoing_messages = create_messages_to_neighbors(state, merged_value)
 
-      error ->
-        {:reply, {:error, error}, state}
+        {:reply, {:ok, merged_value, outgoing_messages},
+         %{state | value: merged_value, outgoing_messages: outgoing_messages}}
     end
   end
 
@@ -127,6 +166,23 @@ defmodule PregelEx.Vertex do
     {:reply, :ok, %{state | outgoing_messages: new_outgoing}}
   end
 
+  @impl true
+  def handle_call({:initialize, new_value}, _from, state) do
+    merged_value =
+      if is_map(state.value) and is_map(new_value) do
+        Map.merge(state.value, new_value)
+      else
+        new_value
+      end
+
+    # FLAG
+    messages = state.outgoing_edges
+    |> Enum.map(fn {neighbor_id, _edge} ->
+      Message.new(state.id, neighbor_id, merged_value, state.superstep)
+    end)
+    {:reply, :ok, %{state | outgoing_messages: messages}}
+  end
+
   def handle_call(:get_outgoing_messages, _from, state) do
     {:reply, {:ok, state.outgoing_messages}, state}
   end
@@ -136,6 +192,7 @@ defmodule PregelEx.Vertex do
   end
 
   def handle_call({:receive_messages, messages}, _from, state) do
+    IO.puts("Vertex #{state.id} received messages: #{inspect(messages)}")
     # Add to pending (will become incoming on the next superstep)
     new_pending = state.pending_messages ++ messages
     new_state = %{state | pending_messages: new_pending}
@@ -153,6 +210,8 @@ defmodule PregelEx.Vertex do
         active: has_messages or state.active
     }
 
+    IO.puts("Advancing superstep for vertex #{state.id} to #{new_state.superstep} with incoming messages: #{inspect(new_state.incoming_messages)}")
+
     {:reply, :ok, new_state}
   end
 
@@ -168,5 +227,13 @@ defmodule PregelEx.Vertex do
   def handle_call(:activate, _from, state) do
     new_state = %{state | active: true}
     {:reply, :ok, new_state}
+  end
+
+  def create_messages_to_neighbors(state, merged_value) do
+    neighbor_ids = Map.keys(state.outgoing_edges)
+
+    Enum.map(neighbor_ids, fn neighbor_id ->
+      Message.new(state.id, neighbor_id, merged_value, state.superstep)
+    end)
   end
 end

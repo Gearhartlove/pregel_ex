@@ -12,7 +12,7 @@ defmodule PregelEx.GraphSupervisor do
     }
 
     case DynamicSupervisor.start_child(__MODULE__, child_spec) do
-      {:ok, pid} -> {:ok, pid, graph_id}
+      {:ok, pid} -> {:ok, graph_id, pid}
       {:error, {:already_started, pid}} -> {:ok, pid, graph_id}
       error -> error
     end

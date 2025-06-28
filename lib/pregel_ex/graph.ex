@@ -10,6 +10,8 @@ defmodule PregelEx.Graph do
     )
   end
 
+  @spec create_vertex(String.t(), String.t(), (map() -> map()), keyword()) ::
+          {:ok, String.t(), pid()} | {:error, atom()}
   def create_vertex(graph_id, name, function, opts \\ []) do
     vertex_id =
       :crypto.strong_rand_bytes(16)
@@ -258,9 +260,13 @@ defmodule PregelEx.Graph do
         vertex_pids
         |> Enum.filter(fn pid ->
           case GenServer.call(pid, :active?) do
-            true -> GenServer.call(pid, :compute)
-            false -> :ok
+            true -> true
+            false -> false
           end
+        end)
+        |> IO.inspect(label: "Active vertex PIDs for graph #{graph_id}")
+        |> Enum.each(fn pid ->
+          GenServer.call(pid, :compute)
         end)
 
         :ok
@@ -299,6 +305,7 @@ defmodule PregelEx.Graph do
           end
         end)
         |> then(&{:ok, &1})
+        |> IO.inspect(label: "Collected messages for graph #{graph_id}")
 
       error ->
         error
@@ -415,20 +422,130 @@ defmodule PregelEx.Graph do
   def check_termination_condition(graph_id) do
     case list_vertices(graph_id) do
       {:ok, vertex_pids} ->
-        active_count =
+        active_vertices =
           vertex_pids
-          |> Enum.count(fn pid ->
+          |> Enum.filter(fn pid ->
             GenServer.call(pid, :active?)
           end)
+        active_count = length(active_vertices)
 
         if active_count == 0 do
-          {:halted, "All vertices inactive, terminating graph #{graph_id}"}
+          {:halted, "All vertices have voted to halt, terminating superstep for graph #{graph_id}"}
         else
-          {:continue, "#{active_count} active vertices remain, continuing superstep for graph #{graph_id}"}
+          {:continue,
+           "#{active_count} active vertices remain, continuing superstep for graph #{graph_id}. Active vertices: #{inspect(active_vertices)}"}
         end
 
-      error -> error
+      error ->
+        error
     end
-    :ok
   end
+
+  def run(graph_id, initial_state \\ %{}, opts \\ []) do
+    max_supersteps = Keyword.get(opts, :max_supersteps, 1000)
+    timeout = Keyword.get(opts, :timeout, 60_000)
+
+    IO.puts("Running graph #{graph_id} with max_supersteps=#{max_supersteps}, timeout=#{timeout}ms")
+    with :ok <- initialize_graph(graph_id, initial_state) do
+      run_with_limits(graph_id, 0, [], max_supersteps, timeout)
+    end
+  end
+
+  def initialize_graph(graph_id, initial_state) do
+    case list_vertices(graph_id) do
+      {:ok, vertex_pids} ->
+        start_vertex_pid =
+          Enum.find(vertex_pids, fn pid ->
+            {:ok, state} = GenServer.call(pid, :get_state)
+            state.name == "start_vertex"
+          end)
+
+        case start_vertex_pid do
+          nil ->
+            {:error, :start_vertex_not_found}
+
+          pid ->
+            GenServer.call(pid, {:initialize, initial_state})
+        end
+
+      error ->
+        error
+    end
+  end
+
+  def run_with_limits(graph_id, superstep, log, max_supersteps, timeout) do
+    start_time = System.monotonic_time(:millisecond)
+
+    cond do
+      superstep >= max_supersteps ->
+        {:error, {:max_supersteps_exceeded, superstep}}
+
+      System.monotonic_time(:millisecond) - start_time > timeout ->
+        {:error, {:timeout_exceeded, superstep}}
+
+      true ->
+        case execute_superstep(graph_id) do
+          {:halted, reason} ->
+            Logger.info("Graph #{graph_id} halted: #{reason}")
+
+            final_value =
+              case list_vertices(graph_id) do
+                {:error, _} ->
+                  []
+
+                {:ok, vertices} ->
+                  Enum.find(vertices, fn pid ->
+                    case GenServer.call(pid, :get_state) do
+                      {:ok, %{name: "end_vertex"}} -> true
+                      _ -> false
+                    end
+                  end)
+                  |> case do
+                    nil ->
+                      IO.puts("No end vertex found in graph #{graph_id}")
+                      nil
+
+                    pid ->
+                      case GenServer.call(pid, :get_state) do
+                        {:ok, state} ->
+                          # TAG: delete
+                          IO.inspect(state.value, label: "End vertex value for graph #{graph_id}")
+                          state.value
+                        _ -> nil
+                      end
+                  end
+              end
+
+            # TAG: delete
+            IO.inspect(final_value, label: "Final value for graph #{graph_id}")
+
+            {:ok,
+             %{
+               status: :completed,
+               supersteps: superstep,
+               value: final_value,
+               log: log ++ [reason]
+             }}
+
+          {:continue, status} ->
+            Logger.info("Graph #{graph_id} continuing: #{status}")
+
+            run_with_limits(
+              graph_id,
+              superstep + 1,
+              log ++ [status],
+              max_supersteps,
+              timeout
+            )
+
+          error ->
+            Logger.error(
+              "Error during superstep #{superstep} for graph #{graph_id}: #{inspect(error)}"
+            )
+
+            {:error, error}
+        end
+    end
+  end
+
 end
