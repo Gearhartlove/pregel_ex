@@ -51,12 +51,6 @@ defmodule PregelEx.Vertex do
   end
 
 
-  @impl true
-  def handle_call(:compute, _from, %{active: true, incoming_messages: []} = state) do
-    state = %{state | active: false}
-    {:reply, {:ok, :halt, state.value}, state}
-  end
-
   defp aggregate_incoming_messages([]), do: nil
 
   defp aggregate_incoming_messages(messages) do
@@ -74,6 +68,12 @@ defmodule PregelEx.Vertex do
       _ ->
         contents  # Return list for other types
     end
+  end
+
+  @impl true
+  def handle_call(:compute, _from, %{active: true, incoming_messages: []} = state) do
+    state = %{state | active: false}
+    {:reply, {:ok, :halt, state.value}, state}
   end
 
   @impl true
