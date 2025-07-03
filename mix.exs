@@ -10,21 +10,23 @@ defmodule PregelEx.MixProject do
       deps: deps(),
       description: "PregelEx - A distributed graph processing framework in Elixir",
       package: package(),
-      name: "PregelEx"
+      name: "PregelEx",
+      source_url: "https://github.com/Gearhartlove/pregel_ex"
     ]
   end
 
   defp package do
     %{
       licenses: ["MIT"],
-      organization: "Swords to Software"
+      organization: "Swords to Software",
+      links: %{"Github" => "https://github.com/Gearhartlove/pregel_ex"}
     }
   end
 
   def application do
     [
       extra_applications: [:logger],
-      mod: {PregelEx.Application, []}
+      mod: {PregelEx.Application, []},
     ]
   end
 
