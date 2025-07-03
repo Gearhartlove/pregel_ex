@@ -15,12 +15,13 @@ defmodule PregelEx.Vertex do
     :outgoing_messages,
     :superstep,
     :active,
+    :vertex_type
   ]
 
-  def start_link({graph_id, vertex_id, name, function, initial_value}) do
+  def start_link({graph_id, vertex_id, name, function, value, vertex_type}) do
     GenServer.start_link(
       __MODULE__,
-      {graph_id, vertex_id, name, function, initial_value},
+      {graph_id, vertex_id, name, function, value, vertex_type},
       name: {:via, Registry, {PregelEx.VertexRegistry, {graph_id, vertex_id}}}
     )
   end
@@ -28,13 +29,13 @@ defmodule PregelEx.Vertex do
   ## Callbacks
 
   @impl true
-  def init({graph_id, vertex_id, name, function, initial_value}) do
+  def init({graph_id, vertex_id, name, function, value, vertex_type}) do
     vertex = %__MODULE__{
       graph_id: graph_id,
       id: vertex_id,
       name: name,
       function: function,
-      value: initial_value,
+      value: value,
       # Messages received but not yet processed
       pending_messages: [],
       # Messages received this superstep
@@ -44,7 +45,8 @@ defmodule PregelEx.Vertex do
       # Messages to send next superstep
       outgoing_messages: [],
       superstep: 0,
-      active: true,
+      active: vertex_type == :source,
+      vertex_type: vertex_type
     }
 
     {:ok, vertex}
@@ -71,7 +73,8 @@ defmodule PregelEx.Vertex do
   end
 
   @impl true
-  def handle_call(:compute, _from, %{active: true, incoming_messages: []} = state) do
+  def handle_call(:compute, _from, %{active: true, incoming_messages: [], superstep: superstep} = state)
+    when superstep > 0 do
     state = %{state | active: false}
     {:reply, {:ok, :halt, state.value}, state}
   end
@@ -114,7 +117,20 @@ defmodule PregelEx.Vertex do
         #   new_value,
         #   state.merge_strategy
         # )
-        merged_value = Map.merge(state.value, new_value)
+        merged_value =
+          case state.value do
+            nil -> new_value
+            _ when is_map(state.value) and is_map(new_value) ->
+              # If both are maps, merge them
+              Map.merge(state.value, new_value)
+            # _ when is_list(state.value) and is_list(new_value) ->
+            #   # If both are lists, concatenate them
+            #   state.value ++ new_value
+            # _ when is_number(state.value) and is_number(new_value) ->
+            #   # If both are numbers, sum them
+            #   state.value + new_value
+            # ...
+          end
         outgoing_messages = create_messages_to_neighbors(state, merged_value)
 
         {:reply, {:ok, merged_value, outgoing_messages},
@@ -166,23 +182,6 @@ defmodule PregelEx.Vertex do
     {:reply, :ok, %{state | outgoing_messages: new_outgoing}}
   end
 
-  @impl true
-  def handle_call({:initialize, new_value}, _from, state) do
-    merged_value =
-      if is_map(state.value) and is_map(new_value) do
-        Map.merge(state.value, new_value)
-      else
-        new_value
-      end
-
-    # FLAG
-    messages = state.outgoing_edges
-    |> Enum.map(fn {neighbor_id, _edge} ->
-      Message.new(state.id, neighbor_id, merged_value, state.superstep)
-    end)
-    {:reply, :ok, %{state | outgoing_messages: messages}}
-  end
-
   def handle_call(:get_outgoing_messages, _from, state) do
     {:reply, {:ok, state.outgoing_messages}, state}
   end
@@ -227,6 +226,10 @@ defmodule PregelEx.Vertex do
   def handle_call(:activate, _from, state) do
     new_state = %{state | active: true}
     {:reply, :ok, new_state}
+  end
+
+  def handle_call(:get_type, _from, state) do
+    {:reply, state.vertex_type, state}
   end
 
   def create_messages_to_neighbors(state, merged_value) do

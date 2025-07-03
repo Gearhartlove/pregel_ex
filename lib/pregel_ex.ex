@@ -156,19 +156,11 @@ defmodule PregelEx do
     Graph.execute_superstep(graph_id)
   end
 
-  def initialize_graph(graph_id, initial_state \\ %{}) do
-    Graph.initialize_graph(graph_id, initial_state)
+  def run(graph_id, opts \\ []) do
+    Graph.run(graph_id, opts)
   end
 
-  def run(graph_id, initial_state \\ %{}, opts \\ []) do
-    Graph.run(graph_id, initial_state, opts)
-  end
-
-  def create_start_vertex(graph_id, initial_value \\ %{}) do
-    create_vertex(graph_id, "start_vertex", fn _ -> initial_value end, value: initial_value)
-  end
-
-  def create_end_vertex(graph_id, initial_value \\ %{}) do
-    create_vertex(graph_id, "end_vertex", fn context -> context.aggregated_messages end, value: initial_value)
+  def get_final_value(graph_id) do
+    Graph.get_final_value(graph_id)
   end
 end

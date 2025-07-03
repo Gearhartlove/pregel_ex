@@ -13,16 +13,16 @@ defmodule PregelEx.Graph do
   @spec create_vertex(String.t(), String.t(), (map() -> map()), keyword()) ::
           {:ok, String.t(), pid()} | {:error, atom()}
   def create_vertex(graph_id, name, function, opts \\ []) do
+    value = Keyword.get(opts, :value)
+    vertex_type = Keyword.get(opts, :type, :normal)
     vertex_id =
       :crypto.strong_rand_bytes(16)
       |> Base.encode16(case: :lower)
       |> String.replace_prefix("", "vtx.")
 
-    initial_value = Keyword.get(opts, :initial_value, %{})
-
     child_spec = %{
       id: :unknown,
-      start: {Vertex, :start_link, [{graph_id, vertex_id, name, function, initial_value}]}
+      start: {Vertex, :start_link, [{graph_id, vertex_id, name, function, value, vertex_type}]},
     }
 
     case Registry.lookup(PregelEx.GraphRegistry, graph_id) do
@@ -427,10 +427,12 @@ defmodule PregelEx.Graph do
           |> Enum.filter(fn pid ->
             GenServer.call(pid, :active?)
           end)
+
         active_count = length(active_vertices)
 
         if active_count == 0 do
-          {:halted, "All vertices have voted to halt, terminating superstep for graph #{graph_id}"}
+          {:halted,
+           "All vertices have voted to halt, terminating superstep for graph #{graph_id}"}
         else
           {:continue,
            "#{active_count} active vertices remain, continuing superstep for graph #{graph_id}. Active vertices: #{inspect(active_vertices)}"}
@@ -441,36 +443,15 @@ defmodule PregelEx.Graph do
     end
   end
 
-  def run(graph_id, initial_state \\ %{}, opts \\ []) do
+  def run(graph_id, opts \\ []) do
     max_supersteps = Keyword.get(opts, :max_supersteps, 1000)
     timeout = Keyword.get(opts, :timeout, 60_000)
 
-    IO.puts("Running graph #{graph_id} with max_supersteps=#{max_supersteps}, timeout=#{timeout}ms")
-    with :ok <- initialize_graph(graph_id, initial_state) do
-      run_with_limits(graph_id, 0, [], max_supersteps, timeout)
-    end
-  end
+    IO.puts(
+      "Running graph #{graph_id} with max_supersteps=#{max_supersteps}, timeout=#{timeout}ms"
+    )
 
-  def initialize_graph(graph_id, initial_state) do
-    case list_vertices(graph_id) do
-      {:ok, vertex_pids} ->
-        start_vertex_pid =
-          Enum.find(vertex_pids, fn pid ->
-            {:ok, state} = GenServer.call(pid, :get_state)
-            state.name == "start_vertex"
-          end)
-
-        case start_vertex_pid do
-          nil ->
-            {:error, :start_vertex_not_found}
-
-          pid ->
-            GenServer.call(pid, {:initialize, initial_state})
-        end
-
-      error ->
-        error
-    end
+    run_with_limits(graph_id, 0, [], max_supersteps, timeout)
   end
 
   def run_with_limits(graph_id, superstep, log, max_supersteps, timeout) do
@@ -488,44 +469,7 @@ defmodule PregelEx.Graph do
           {:halted, reason} ->
             Logger.info("Graph #{graph_id} halted: #{reason}")
 
-            final_value =
-              case list_vertices(graph_id) do
-                {:error, _} ->
-                  []
-
-                {:ok, vertices} ->
-                  Enum.find(vertices, fn pid ->
-                    case GenServer.call(pid, :get_state) do
-                      {:ok, %{name: "end_vertex"}} -> true
-                      _ -> false
-                    end
-                  end)
-                  |> case do
-                    nil ->
-                      IO.puts("No end vertex found in graph #{graph_id}")
-                      nil
-
-                    pid ->
-                      case GenServer.call(pid, :get_state) do
-                        {:ok, state} ->
-                          # TAG: delete
-                          IO.inspect(state.value, label: "End vertex value for graph #{graph_id}")
-                          state.value
-                        _ -> nil
-                      end
-                  end
-              end
-
-            # TAG: delete
-            IO.inspect(final_value, label: "Final value for graph #{graph_id}")
-
-            {:ok,
-             %{
-               status: :completed,
-               supersteps: superstep,
-               value: final_value,
-               log: log ++ [reason]
-             }}
+            :ok
 
           {:continue, status} ->
             Logger.info("Graph #{graph_id} continuing: #{status}")
@@ -545,6 +489,26 @@ defmodule PregelEx.Graph do
 
             {:error, error}
         end
+    end
+  end
+
+  def get_final_value(graph_id) do
+    case list_vertices(graph_id) do
+      {:ok, vertex_pids} ->
+        final_vertex =
+          vertex_pids
+          |> Enum.find(fn pid ->
+            GenServer.call(pid, :get_type) == :final
+          end)
+
+        if final_vertex do
+          GenServer.call(final_vertex, :get_state)
+        else
+          {:error, :final_vertex_not_found}
+        end
+
+      error ->
+        error
     end
   end
 

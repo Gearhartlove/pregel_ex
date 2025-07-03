@@ -77,7 +77,7 @@ defmodule PregelExTest do
     assert is_binary(graph_id)
     assert length(Supervisor.which_children(PregelEx.GraphSupervisor)) == 1
     function = fn _ -> :ok end
-    {:ok, vertex_id, vertex_pid} = PregelEx.create_vertex(graph_id, "vertex_1", function)
+    {:ok, vertex_id, vertex_pid} = PregelEx.create_vertex(graph_id, "vertex_1", function, type: :source)
     assert is_binary(vertex_id)
     assert is_pid(vertex_pid)
 
@@ -87,7 +87,7 @@ defmodule PregelExTest do
     assert vertex_state.graph_id == graph_id
     assert vertex_state.id == vertex_id
     assert vertex_state.name == "vertex_1"
-    assert vertex_state.value == %{}
+    assert vertex_state.value == nil
     assert vertex_state.active == true
     assert vertex_state.outgoing_edges == %{}
 
@@ -114,7 +114,7 @@ defmodule PregelExTest do
 
     # Add first vertex
     function_1 = fn _ -> {:ok, 1} end
-    {:ok, vertex_id_1, vertex_pid_1} = PregelEx.create_vertex(graph_id, "vertex_1", function_1)
+    {:ok, vertex_id_1, vertex_pid_1} = PregelEx.create_vertex(graph_id, "vertex_1", function_1, type: :source)
     assert is_binary(vertex_id_1)
     assert is_pid(vertex_pid_1)
 
@@ -124,7 +124,7 @@ defmodule PregelExTest do
     assert vertex_state_1.graph_id == graph_id
     assert vertex_state_1.id == vertex_id_1
     assert vertex_state_1.name == "vertex_1"
-    assert vertex_state_1.value == %{}
+    assert vertex_state_1.value == nil
     assert vertex_state_1.active == true
     assert vertex_state_1.outgoing_edges == %{}
 
@@ -133,7 +133,7 @@ defmodule PregelExTest do
 
     # Add second vertex
     function_2 = fn _ -> {:ok, 2} end
-    {:ok, vertex_id_2, vertex_pid_2} = PregelEx.create_vertex(graph_id, "vertex_2", function_2)
+    {:ok, vertex_id_2, vertex_pid_2} = PregelEx.create_vertex(graph_id, "vertex_2", function_2, type: :source)
     assert is_binary(vertex_id_2)
     assert is_pid(vertex_pid_2)
 
@@ -143,7 +143,7 @@ defmodule PregelExTest do
     assert vertex_state_2.graph_id == graph_id
     assert vertex_state_2.id == vertex_id_2
     assert vertex_state_2.name == "vertex_2"
-    assert vertex_state_2.value == %{}
+    assert vertex_state_2.value == nil
     assert vertex_state_2.active == true
     assert vertex_state_2.outgoing_edges == %{}
 
@@ -157,8 +157,8 @@ defmodule PregelExTest do
     {:ok, _} = PregelEx.get_vertex_state(graph_id, vertex_id_2)
 
     ## Compute each vertex in the graph
-    {:ok, 1} = PregelEx.compute_vertex(graph_id, vertex_id_1)
-    {:ok, 2} = PregelEx.compute_vertex(graph_id, vertex_id_2)
+    {:ok, {:ok, 1}, _messages} = PregelEx.compute_vertex(graph_id, vertex_id_1)
+    {:ok, {:ok, 2}, _messages} = PregelEx.compute_vertex(graph_id, vertex_id_2)
   end
 
   @doc """
@@ -185,41 +185,37 @@ defmodule PregelExTest do
     {
       :ok,
       v1_id,
-      _
+      _,
     } =
-      PregelEx.create_vertex(graph_id_a, "vertex_1", fn _ -> %{result: 1} end)
+      PregelEx.create_vertex(graph_id_a, "vertex_1", fn _ -> %{result: 1} end, type: :source)
 
     {
       :ok,
       v2_id,
       _
     } =
-      PregelEx.create_vertex(graph_id_a, "vertex_2", fn _ -> %{result: 2} end)
+      PregelEx.create_vertex(graph_id_a, "vertex_2", fn _ -> %{result: 2} end, type: :source)
 
     # Graph B vertices
     {
       :ok,
       v3_id,
-      _
+      _,
     } =
-      PregelEx.create_vertex(graph_id_b, "vertex_3", fn _ -> %{result: 3} end)
+      PregelEx.create_vertex(graph_id_b, "vertex_3", fn _ -> %{result: 3} end, type: :source)
 
     {
       :ok,
       v4_id,
-      _
+      _,
     } =
-      PregelEx.create_vertex(graph_id_b, "vertex_4", fn _ -> %{result: 4} end)
+      PregelEx.create_vertex(graph_id_b, "vertex_4", fn _ -> %{result: 4} end, type: :source)
 
     # Verify results of both graph's vertices
-    v1_result = PregelEx.compute_vertex(graph_id_a, v1_id)
-    assert v1_result == {:ok, %{result: 1}}
-    v2_result = PregelEx.compute_vertex(graph_id_a, v2_id)
-    assert v2_result == {:ok, %{result: 2}}
-    v3_result = PregelEx.compute_vertex(graph_id_b, v3_id)
-    assert v3_result == {:ok, %{result: 3}}
-    v4_result = PregelEx.compute_vertex(graph_id_b, v4_id)
-    assert v4_result == {:ok, %{result: 4}}
+    {:ok, %{result: 1}, _messages} = PregelEx.compute_vertex(graph_id_a, v1_id)
+    {:ok, %{result: 2}, _messages} = PregelEx.compute_vertex(graph_id_a, v2_id)
+    {:ok, %{result: 3}, _messages} = PregelEx.compute_vertex(graph_id_b, v3_id)
+    {:ok, %{result: 4}, _messages} = PregelEx.compute_vertex(graph_id_b, v4_id)
 
     # Verify that both graphs have the correct number of vertices
     assert 2 = PregelEx.get_vertex_count(graph_id_a)
@@ -355,37 +351,8 @@ defmodule PregelExTest do
     assert length(vertex_state_v3.incoming_messages) == 1
   end
 
-  test "009 vertex function with state merging" do
+  test "009 test simple 3 part graph" do
     assert [] = Supervisor.which_children(PregelEx.GraphSupervisor)
-    {:ok, graph_id, _pid} = PregelEx.create_graph("graph_with_state_merge")
-
-    # Create vertex with initial state
-    initial_value = %{zip: "zap"}
-
-    function = fn context ->
-      value = context.value
-      number = Map.get(value, :number, 0)
-      %{number: number + 1}
-    end
-
-    {:ok, vertex_id, _} =
-      PregelEx.create_vertex(graph_id, "vertex_1", function, initial_value: initial_value)
-
-    # Compute vertex multiple times to test state merging
-    {:ok, state_after_first, []} = PregelEx.compute_vertex(graph_id, vertex_id)
-    assert state_after_first == %{zip: "zap", number: 1}
-
-    {:ok, state_after_second, []} = PregelEx.compute_vertex(graph_id, vertex_id)
-    assert state_after_second == %{zip: "zap", number: 2}
-
-    {:ok, state_after_third, []} = PregelEx.compute_vertex(graph_id, vertex_id)
-    assert state_after_third == %{zip: "zap", number: 3}
-  end
-
-  test "010 test simple 3 part graph" do
-    assert [] = Supervisor.which_children(PregelEx.GraphSupervisor)
-
-    initial_value = %{sum: 0}
 
     add_one = fn context ->
       case context.aggregated_messages do
@@ -398,19 +365,30 @@ defmodule PregelExTest do
     {:ok, graph_id, _} = PregelEx.create_graph("sum_graph")
 
     # Create vertices
-    {:ok, start_vertex_id, _} = PregelEx.create_start_vertex(graph_id, initial_value)
+    {:ok, start_vertex_id, _} =
+      PregelEx.create_vertex(
+          graph_id,
+          "start", fn _ -> %{sum: 0} end,
+          type: :source
+        )
     {:ok, vertex_1, _} = PregelEx.create_vertex(graph_id, "v1", add_one)
     {:ok, vertex_2, _} = PregelEx.create_vertex(graph_id, "v2", add_one)
-    {:ok, final_vertex_id, _} = PregelEx.create_end_vertex(graph_id)
+    {:ok, final_vertex_id, _} =
+      PregelEx.create_vertex(
+          graph_id,
+          "final",
+          fn context -> context.aggregated_messages end,
+          type: :final
+        )
 
     # Create edges
     PregelEx.create_edge(graph_id, start_vertex_id, vertex_1)
     PregelEx.create_edge(graph_id, vertex_1, vertex_2)
     PregelEx.create_edge(graph_id, vertex_2, final_vertex_id)
 
-    :ok = PregelEx.initialize_graph(graph_id, initial_value)
-    {:ok, final} = PregelEx.run(graph_id, initial_value)
-    IO.inspect(final, label: "Final Value")
+    :ok = PregelEx.run(graph_id)
+    {:ok, final} = PregelEx.get_final_value(graph_id)
+
     assert final.value == %{sum: 2}
   end
 end
