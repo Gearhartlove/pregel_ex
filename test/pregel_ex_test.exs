@@ -77,7 +77,10 @@ defmodule PregelExTest do
     assert is_binary(graph_id)
     assert length(Supervisor.which_children(PregelEx.GraphSupervisor)) == 1
     function = fn _ -> :ok end
-    {:ok, vertex_id, vertex_pid} = PregelEx.create_vertex(graph_id, "vertex_1", function, type: :source)
+
+    {:ok, vertex_id, vertex_pid} =
+      PregelEx.create_vertex(graph_id, "vertex_1", function, type: :source)
+
     assert is_binary(vertex_id)
     assert is_pid(vertex_pid)
 
@@ -114,7 +117,10 @@ defmodule PregelExTest do
 
     # Add first vertex
     function_1 = fn _ -> {:ok, 1} end
-    {:ok, vertex_id_1, vertex_pid_1} = PregelEx.create_vertex(graph_id, "vertex_1", function_1, type: :source)
+
+    {:ok, vertex_id_1, vertex_pid_1} =
+      PregelEx.create_vertex(graph_id, "vertex_1", function_1, type: :source)
+
     assert is_binary(vertex_id_1)
     assert is_pid(vertex_pid_1)
 
@@ -133,7 +139,10 @@ defmodule PregelExTest do
 
     # Add second vertex
     function_2 = fn _ -> {:ok, 2} end
-    {:ok, vertex_id_2, vertex_pid_2} = PregelEx.create_vertex(graph_id, "vertex_2", function_2, type: :source)
+
+    {:ok, vertex_id_2, vertex_pid_2} =
+      PregelEx.create_vertex(graph_id, "vertex_2", function_2, type: :source)
+
     assert is_binary(vertex_id_2)
     assert is_pid(vertex_pid_2)
 
@@ -185,7 +194,7 @@ defmodule PregelExTest do
     {
       :ok,
       v1_id,
-      _,
+      _
     } =
       PregelEx.create_vertex(graph_id_a, "vertex_1", fn _ -> %{result: 1} end, type: :source)
 
@@ -200,14 +209,14 @@ defmodule PregelExTest do
     {
       :ok,
       v3_id,
-      _,
+      _
     } =
       PregelEx.create_vertex(graph_id_b, "vertex_3", fn _ -> %{result: 3} end, type: :source)
 
     {
       :ok,
       v4_id,
-      _,
+      _
     } =
       PregelEx.create_vertex(graph_id_b, "vertex_4", fn _ -> %{result: 4} end, type: :source)
 
@@ -367,19 +376,22 @@ defmodule PregelExTest do
     # Create vertices
     {:ok, start_vertex_id, _} =
       PregelEx.create_vertex(
-          graph_id,
-          "start", fn _ -> %{sum: 0} end,
-          type: :source
-        )
+        graph_id,
+        "start",
+        fn _ -> %{sum: 0} end,
+        type: :source
+      )
+
     {:ok, vertex_1, _} = PregelEx.create_vertex(graph_id, "v1", add_one)
     {:ok, vertex_2, _} = PregelEx.create_vertex(graph_id, "v2", add_one)
+
     {:ok, final_vertex_id, _} =
       PregelEx.create_vertex(
-          graph_id,
-          "final",
-          fn context -> context.aggregated_messages end,
-          type: :final
-        )
+        graph_id,
+        "final",
+        fn context -> context.aggregated_messages end,
+        type: :final
+      )
 
     # Create edges
     PregelEx.create_edge(graph_id, start_vertex_id, vertex_1)

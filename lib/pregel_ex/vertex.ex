@@ -52,7 +52,6 @@ defmodule PregelEx.Vertex do
     {:ok, vertex}
   end
 
-
   defp aggregate_incoming_messages([]), do: nil
 
   defp aggregate_incoming_messages(messages) do
@@ -62,19 +61,26 @@ defmodule PregelEx.Vertex do
     # Choose aggregation strategy based on content type
     case List.first(contents) do
       value when is_number(value) ->
-        Enum.sum(contents)  # Sum numeric values
+        # Sum numeric values
+        Enum.sum(contents)
 
       value when is_map(value) ->
-        Enum.reduce(contents, %{}, &Map.merge/2)  # Merge maps
+        # Merge maps
+        Enum.reduce(contents, %{}, &Map.merge/2)
 
       _ ->
-        contents  # Return list for other types
+        # Return list for other types
+        contents
     end
   end
 
   @impl true
-  def handle_call(:compute, _from, %{active: true, incoming_messages: [], superstep: superstep} = state)
-    when superstep > 0 do
+  def handle_call(
+        :compute,
+        _from,
+        %{active: true, incoming_messages: [], superstep: superstep} = state
+      )
+      when superstep > 0 do
     state = %{state | active: false}
     {:reply, {:ok, :halt, state.value}, state}
   end
@@ -119,18 +125,21 @@ defmodule PregelEx.Vertex do
         # )
         merged_value =
           case state.value do
-            nil -> new_value
+            nil ->
+              new_value
+
             _ when is_map(state.value) and is_map(new_value) ->
               # If both are maps, merge them
               Map.merge(state.value, new_value)
-            # _ when is_list(state.value) and is_list(new_value) ->
-            #   # If both are lists, concatenate them
-            #   state.value ++ new_value
-            # _ when is_number(state.value) and is_number(new_value) ->
-            #   # If both are numbers, sum them
-            #   state.value + new_value
-            # ...
+              # _ when is_list(state.value) and is_list(new_value) ->
+              #   # If both are lists, concatenate them
+              #   state.value ++ new_value
+              # _ when is_number(state.value) and is_number(new_value) ->
+              #   # If both are numbers, sum them
+              #   state.value + new_value
+              # ...
           end
+
         outgoing_messages = create_messages_to_neighbors(state, merged_value)
 
         {:reply, {:ok, merged_value, outgoing_messages},
@@ -209,7 +218,9 @@ defmodule PregelEx.Vertex do
         active: has_messages or state.active
     }
 
-    IO.puts("Advancing superstep for vertex #{state.id} to #{new_state.superstep} with incoming messages: #{inspect(new_state.incoming_messages)}")
+    IO.puts(
+      "Advancing superstep for vertex #{state.id} to #{new_state.superstep} with incoming messages: #{inspect(new_state.incoming_messages)}"
+    )
 
     {:reply, :ok, new_state}
   end

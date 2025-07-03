@@ -15,6 +15,7 @@ defmodule PregelEx.Graph do
   def create_vertex(graph_id, name, function, opts \\ []) do
     value = Keyword.get(opts, :value)
     vertex_type = Keyword.get(opts, :type, :normal)
+
     vertex_id =
       :crypto.strong_rand_bytes(16)
       |> Base.encode16(case: :lower)
@@ -22,7 +23,7 @@ defmodule PregelEx.Graph do
 
     child_spec = %{
       id: :unknown,
-      start: {Vertex, :start_link, [{graph_id, vertex_id, name, function, value, vertex_type}]},
+      start: {Vertex, :start_link, [{graph_id, vertex_id, name, function, value, vertex_type}]}
     }
 
     case Registry.lookup(PregelEx.GraphRegistry, graph_id) do
@@ -511,5 +512,4 @@ defmodule PregelEx.Graph do
         error
     end
   end
-
 end
