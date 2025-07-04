@@ -17,6 +17,8 @@ end
 
 ## Example 
 ```elixir
+  alias PregelEx.Builder, as: Builder
+
   add_one = fn context ->
     case context.aggregated_messages do
       nil -> %{sum: 1}
