@@ -5,6 +5,8 @@ defmodule PregelEx.GraphSupervisor do
     DynamicSupervisor.start_link(__MODULE__, :ok, name: __MODULE__)
   end
 
+  @spec create_graph(binary()) ::
+          {:ok, String.t(), pid()} | {:error, term()} | {:ok, String.t(), pid()}
   def create_graph(graph_id) when is_binary(graph_id) do
     child_spec = %{
       id: graph_id,
@@ -13,7 +15,7 @@ defmodule PregelEx.GraphSupervisor do
 
     case DynamicSupervisor.start_child(__MODULE__, child_spec) do
       {:ok, pid} -> {:ok, graph_id, pid}
-      {:error, {:already_started, pid}} -> {:ok, pid, graph_id}
+      {:error, {:already_started, pid}} -> {:ok, graph_id, pid}
       error -> error
     end
   end

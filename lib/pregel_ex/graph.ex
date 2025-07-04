@@ -29,7 +29,7 @@ defmodule PregelEx.Graph do
     case Registry.lookup(PregelEx.GraphRegistry, graph_id) do
       [{graph_pid, _}] ->
         case DynamicSupervisor.start_child(graph_pid, child_spec) do
-          {:ok, vertex_pid} -> {:ok, vertex_id, vertex_pid}
+          {:ok, vertex_pid} -> {:ok, vertex_id, vertex_pid, name}
           error -> error
         end
 
@@ -469,7 +469,8 @@ defmodule PregelEx.Graph do
           {:halted, reason} ->
             Logger.info("Graph #{graph_id} halted: #{reason}")
 
-            :ok
+            # TODO: add logging information to the graph
+            {:ok, %{}}
 
           {:continue, status} ->
             Logger.info("Graph #{graph_id} continuing: #{status}")
