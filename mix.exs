@@ -18,8 +18,8 @@ defmodule PregelEx.MixProject do
   defp package do
     %{
       licenses: ["MIT"],
-      organization: "Swords to Software",
-      links: %{"Github" => "https://github.com/Gearhartlove/pregel_ex"}
+      # organization: "Swords to Software",
+      links: %{"GitHub" => "https://github.com/Gearhartlove/pregel_ex"}
     }
   end
 
