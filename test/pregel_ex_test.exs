@@ -424,23 +424,24 @@ defmodule PregelExTest do
       end
     end
 
-    {:ok, graph_id, _graph_pid} = Builder.build("sum_graph")
-    |> Builder.add_vertex(
-      "start",
-      fn _ -> %{sum: 0} end,
-      type: :source
-    )
-    |> Builder.add_vertex("v1", add_one)
-    |> Builder.add_vertex("v2", add_one)
-    |> Builder.add_vertex(
-      "end",
-      fn context -> context.aggregated_messages end,
-      type: :final
-    )
-    |> Builder.add_edge("start", "v1")
-    |> Builder.add_edge("v1", "v2")
-    |> Builder.add_edge("v2", "end")
-    |> Builder.finish()
+    {:ok, graph_id, _graph_pid} =
+      Builder.build("sum_graph")
+      |> Builder.add_vertex(
+        "start",
+        fn _ -> %{sum: 0} end,
+        type: :source
+      )
+      |> Builder.add_vertex("v1", add_one)
+      |> Builder.add_vertex("v2", add_one)
+      |> Builder.add_vertex(
+        "end",
+        fn context -> context.aggregated_messages end,
+        type: :final
+      )
+      |> Builder.add_edge("start", "v1")
+      |> Builder.add_edge("v1", "v2")
+      |> Builder.add_edge("v2", "end")
+      |> Builder.finish()
 
     {:ok, info} = PregelEx.run(graph_id)
     {:ok, final} = PregelEx.get_final_value(graph_id)

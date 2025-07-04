@@ -26,7 +26,7 @@ defmodule PregelEx.MixProject do
   def application do
     [
       extra_applications: [:logger],
-      mod: {PregelEx.Application, []},
+      mod: {PregelEx.Application, []}
     ]
   end
 

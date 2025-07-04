@@ -1,15 +1,18 @@
 defmodule PregelEx.Builder do
   defstruct [
-    :name,         # Name of the builder
-    :vertices,     # List of vertices in the graph
-    :edges         # List of edges connecting the vertices
+    # Name of the builder
+    :name,
+    # List of vertices in the graph
+    :vertices,
+    # List of edges connecting the vertices
+    :edges
   ]
 
   @type t :: %__MODULE__{
-    name: String.t(),
-    vertices: list(map()),
-    edges: list(tuple())
-  }
+          name: String.t(),
+          vertices: list(map()),
+          edges: list(tuple())
+        }
 
   def type, do: :builder
 
@@ -44,7 +47,9 @@ defmodule PregelEx.Builder do
           type: Keyword.get(opts, :type, :normal),
           opts: opts
         }
+
         %{builder | vertices: builder.vertices ++ [vertex]}
+
       _ ->
         # Vertex already exists, raise an error
         raise ArgumentError, "Vertex with name '#{name}' already exists in the builder."
@@ -81,9 +86,10 @@ defmodule PregelEx.Builder do
           # TODO: fail on errors
           # Note: does not collect errors currently
           # Add vertices
-          verticies = Enum.map(builder.vertices, fn vertex ->
-            PregelEx.create_vertex(graph_id, vertex.name, vertex.function, vertex.opts)
-          end)
+          verticies =
+            Enum.map(builder.vertices, fn vertex ->
+              PregelEx.create_vertex(graph_id, vertex.name, vertex.function, vertex.opts)
+            end)
 
           # Turn verticies into a map for easy lookup of vertex IDs to names
           vertex_map = Enum.into(verticies, %{}, fn {:ok, id, _pid, name} -> {name, id} end)
@@ -91,14 +97,14 @@ defmodule PregelEx.Builder do
           # TODO: fail on errors
           # NOTE: does not collect errors currently
           # Add edges
-          _edges = Enum.map(builder.edges, fn {source, target} ->
-            source_id = Map.get(vertex_map, source)
-            target_id = Map.get(vertex_map, target)
-            PregelEx.create_edge(graph_id, source_id, target_id)
-          end)
+          _edges =
+            Enum.map(builder.edges, fn {source, target} ->
+              source_id = Map.get(vertex_map, source)
+              target_id = Map.get(vertex_map, target)
+              PregelEx.create_edge(graph_id, source_id, target_id)
+            end)
 
           {:ok, graph_id, graph_pid}
-
         rescue
           e ->
             if graph_pid and Process.alive?(graph_pid) do
@@ -113,7 +119,6 @@ defmodule PregelEx.Builder do
     end
   end
 
-
   # This functions finds a vertex by its name in the builder.
   @spec find_vertex(__MODULE__.t(), String.t()) :: {:ok, map()} | {:error, String.t()}
   defp find_vertex(builder, name) do
@@ -122,5 +127,4 @@ defmodule PregelEx.Builder do
       vertex -> {:ok, vertex}
     end
   end
-
 end
