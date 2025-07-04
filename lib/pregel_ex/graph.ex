@@ -129,7 +129,6 @@ defmodule PregelEx.Graph do
       GenServer.call(from_pid, {:add_outgoing_edge, to_vertex_id, weight, properties})
     else
       {:error, :not_found} -> {:error, :vertex_not_found}
-      error -> error
     end
   end
 
