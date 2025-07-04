@@ -26,7 +26,8 @@ end
     end
   end
   
-  {:ok, graph_id, _graph_pid} = Builder.build("sum_graph")
+  {:ok, graph_id, _graph_pid} = 
+    Builder.build("sum_graph")
     |> Builder.add_vertex(
       "start",
       fn _ -> %{sum: 0} end,
