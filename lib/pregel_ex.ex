@@ -11,8 +11,7 @@ defmodule PregelEx do
   @doc """
   Creates a new graph with the given ID.
   """
-  @spec create_graph(String.t()) ::
-          {:ok, String.t(), pid()} | {:error, atom()} | {:ok, String.t(), pid()}
+  @spec create_graph(String.t()) :: {:ok, String.t(), pid()} | {:error, atom()}
   def create_graph(graph_id) when is_binary(graph_id) do
     GraphSupervisor.create_graph(graph_id)
   end

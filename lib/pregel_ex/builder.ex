@@ -19,13 +19,14 @@ defmodule PregelEx.Builder do
   @doc """
   Initializes a new graph builder with the given name.
   """
+  @spec build(String.t()) :: {:ok, __MODULE__.t()}
   def build(name) do
     # Initialize the builder with the given name
-    %__MODULE__{
+    {:ok, %__MODULE__{
       name: name,
       vertices: [],
       edges: []
-    }
+    }}
   end
 
   @doc """
@@ -34,8 +35,8 @@ defmodule PregelEx.Builder do
   # Validation
   - The vertex must have a unique name.
   """
-  @spec add_vertex(__MODULE__.t(), String.t(), (map() -> map()), keyword()) :: __MODULE__.t()
-  def add_vertex(builder, name, function, opts \\ []) do
+  @spec add_vertex({:ok, t()}, String.t(), (map() -> map()), :elixir.keyword()) :: {:ok, t()} | {:error, String.t()}
+  def add_vertex({:ok, builder}, name, function, opts \\ []) do
     builder.vertices
     |> Enum.find(fn v -> v.name == name end)
     |> case do
@@ -48,11 +49,11 @@ defmodule PregelEx.Builder do
           opts: opts
         }
 
-        %{builder | vertices: builder.vertices ++ [vertex]}
+        {:ok, %{builder | vertices: builder.vertices ++ [vertex]}}
 
       _ ->
         # Vertex already exists, raise an error
-        raise ArgumentError, "Vertex with name '#{name}' already exists in the builder."
+        {:error, "Vertex with name '#{name}' already exists in the builder."}
     end
   end
 
@@ -62,13 +63,13 @@ defmodule PregelEx.Builder do
   # Validation
   - Both vertices must exist in the builder.
   """
-  @spec add_edge(__MODULE__.t(), binary(), binary()) :: :ok | {:error, String.t()}
-  def add_edge(builder, source, target) do
+  @spec add_edge({:ok, t()}, binary(), binary()) :: {:ok, t()} | {:error, String.t()}
+  def add_edge({:ok, builder}, source, target) do
     with {:ok, source_vertex} <- find_vertex(builder, source),
          {:ok, target_vertex} <- find_vertex(builder, target) do
       # Both vertices exist, add the edge
       edge = {source_vertex.name, target_vertex.name}
-      %{builder | edges: builder.edges ++ [edge]}
+      {:ok, %{builder | edges: builder.edges ++ [edge]}}
     else
       {:error, reason} -> {:error, reason}
     end
@@ -77,8 +78,8 @@ defmodule PregelEx.Builder do
   @doc """
   Creates the graph using the builder's properties.
   """
-  # @spec create_graph(__MODULE__.t()) :: {:ok, String.t()} | {:error, String.t()}
-  def finish(builder) do
+  @spec finish({:ok, t()}) :: {:ok, String.t(), pid()} | {:error, String.t()}
+  def finish({:ok, builder}) do
     # Take 3
     case PregelEx.create_graph(builder.name) do
       {:ok, graph_id, graph_pid} ->
@@ -107,7 +108,7 @@ defmodule PregelEx.Builder do
           {:ok, graph_id, graph_pid}
         rescue
           e ->
-            if graph_pid and Process.alive?(graph_pid) do
+            if Process.alive?(graph_pid) do
               DynamicSupervisor.stop(graph_pid, :normal)
             end
 
@@ -120,7 +121,7 @@ defmodule PregelEx.Builder do
   end
 
   # This functions finds a vertex by its name in the builder.
-  @spec find_vertex(__MODULE__.t(), String.t()) :: {:ok, map()} | {:error, String.t()}
+  @spec find_vertex(t(), String.t()) :: {:ok, map()} | {:error, String.t()}
   defp find_vertex(builder, name) do
     case Enum.find(builder.vertices, fn v -> v.name == name end) do
       nil -> {:error, "Vertex '#{name}' not found in the builder."}
