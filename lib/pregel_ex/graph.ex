@@ -121,12 +121,12 @@ defmodule PregelEx.Graph do
   - {:ok, edge} on success
   - {:error, reason} on failure
   """
-  def create_edge(graph_id, from_vertex_id, to_vertex_id, weight \\ 1, properties \\ %{}) do
+  def create_edge(graph_id, from_vertex_id, to_vertex_id, opts \\ []) do
     # Verify both vertices exist
     with {:ok, from_pid} <- get_vertex_pid(graph_id, from_vertex_id),
          {:ok, _to_pid} <- get_vertex_pid(graph_id, to_vertex_id) do
       # Add the outgoing edge to the source vertex
-      GenServer.call(from_pid, {:add_outgoing_edge, to_vertex_id, weight, properties})
+      GenServer.call(from_pid, {:add_outgoing_edge, to_vertex_id, opts})
     else
       {:error, :not_found} -> {:error, :vertex_not_found}
     end

@@ -22,11 +22,12 @@ defmodule PregelEx.Builder do
   @spec build(String.t()) :: {:ok, __MODULE__.t()}
   def build(name) do
     # Initialize the builder with the given name
-    {:ok, %__MODULE__{
-      name: name,
-      vertices: [],
-      edges: []
-    }}
+    {:ok,
+     %__MODULE__{
+       name: name,
+       vertices: [],
+       edges: []
+     }}
   end
 
   @doc """
@@ -35,7 +36,8 @@ defmodule PregelEx.Builder do
   # Validation
   - The vertex must have a unique name.
   """
-  @spec add_vertex({:ok, t()}, String.t(), (map() -> map()), :elixir.keyword()) :: {:ok, t()} | {:error, String.t()}
+  @spec add_vertex({:ok, t()}, String.t(), (map() -> map()), :elixir.keyword()) ::
+          {:ok, t()} | {:error, String.t()}
   def add_vertex({:ok, builder}, name, function, opts \\ []) do
     builder.vertices
     |> Enum.find(fn v -> v.name == name end)
@@ -64,11 +66,11 @@ defmodule PregelEx.Builder do
   - Both vertices must exist in the builder.
   """
   @spec add_edge({:ok, t()}, binary(), binary()) :: {:ok, t()} | {:error, String.t()}
-  def add_edge({:ok, builder}, source, target) do
+  def add_edge({:ok, builder}, source, target, opts \\ []) do
     with {:ok, source_vertex} <- find_vertex(builder, source),
          {:ok, target_vertex} <- find_vertex(builder, target) do
       # Both vertices exist, add the edge
-      edge = {source_vertex.name, target_vertex.name}
+      edge = {source_vertex.name, target_vertex.name, opts}
       {:ok, %{builder | edges: builder.edges ++ [edge]}}
     else
       {:error, reason} -> {:error, reason}
@@ -99,10 +101,10 @@ defmodule PregelEx.Builder do
           # NOTE: does not collect errors currently
           # Add edges
           _edges =
-            Enum.map(builder.edges, fn {source, target} ->
+            Enum.map(builder.edges, fn {source, target, opts} ->
               source_id = Map.get(vertex_map, source)
               target_id = Map.get(vertex_map, target)
-              PregelEx.create_edge(graph_id, source_id, target_id)
+              PregelEx.create_edge(graph_id, source_id, target_id, opts)
             end)
 
           {:ok, graph_id, graph_pid}

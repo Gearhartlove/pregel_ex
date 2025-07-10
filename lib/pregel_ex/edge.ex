@@ -12,8 +12,9 @@ defmodule PregelEx.Edge do
   defstruct [
     :from_vertex_id,
     :to_vertex_id,
-    weight: 1,
-    properties: %{}
+    :weight,
+    :properties,
+    :condition
   ]
 
   @type t :: %__MODULE__{
@@ -36,12 +37,13 @@ defmodule PregelEx.Edge do
         properties: %{}
       }
   """
-  def new(from_vertex_id, to_vertex_id, weight \\ 1, properties \\ %{}) do
+  def new(from_vertex_id, to_vertex_id, opts \\ []) do
     %__MODULE__{
       from_vertex_id: from_vertex_id,
       to_vertex_id: to_vertex_id,
-      weight: weight,
-      properties: properties
+      weight: Keyword.get(opts, :weight, 1),
+      properties: Keyword.get(opts, :properties, %{}),
+      condition: Keyword.get(opts, :condition, nil)
     }
   end
 end

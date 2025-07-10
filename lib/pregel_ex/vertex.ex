@@ -98,8 +98,6 @@ defmodule PregelEx.Vertex do
       outgoing_edges: state.outgoing_edges
     }
 
-    # NOTE: the messages adon't look they are auto merging right now.
-
     IO.puts("Vertex #{state.id} computing with context: #{inspect(context)}")
 
     result = state.function.(context)
@@ -110,10 +108,11 @@ defmodule PregelEx.Vertex do
         {:reply, {:ok, :halt, state.value}, %{state | active: false}}
 
       ^state_value ->
-        messages = create_messages_to_neighbors(state, state.value)
+        IO.puts("Vertex #{state.id} computed no change, halting.")
+        outgoing_messages = create_messages_to_neighbors(state, state.value, context)
 
-        {:reply, {:ok, state.value, messages},
-         %{state | outgoing_messages: messages, active: false}}
+        {:reply, {:ok, state.value, outgoing_messages},
+         %{state | outgoing_messages: outgoing_messages, active: false}}
 
       new_value ->
         # AUTO-MERGE STATE STRATEGY
@@ -123,14 +122,16 @@ defmodule PregelEx.Vertex do
         #   new_value,
         #   state.merge_strategy
         # )
+        IO.puts("Vertex #{state.id} computed new value: #{inspect(new_value)}")
+
         merged_value =
-          case state.value do
+          case aggregated_messages do
             nil ->
               new_value
 
-            _ when is_map(state.value) and is_map(new_value) ->
+            _ when is_map(aggregated_messages) and is_map(new_value) ->
               # If both are maps, merge them
-              Map.merge(state.value, new_value)
+              Map.merge(aggregated_messages, new_value)
               # _ when is_list(state.value) and is_list(new_value) ->
               #   # If both are lists, concatenate them
               #   state.value ++ new_value
@@ -140,7 +141,11 @@ defmodule PregelEx.Vertex do
               # ...
           end
 
-        outgoing_messages = create_messages_to_neighbors(state, merged_value)
+        IO.puts(
+          "Vertex #{state.id}. old value: #{inspect(state.value)} | merged value: #{inspect(merged_value)}"
+        )
+
+        outgoing_messages = create_messages_to_neighbors(state, merged_value, context)
 
         {:reply, {:ok, merged_value, outgoing_messages},
          %{state | value: merged_value, outgoing_messages: outgoing_messages}}
@@ -153,8 +158,8 @@ defmodule PregelEx.Vertex do
   end
 
   @impl true
-  def handle_call({:add_outgoing_edge, to_vertex_id, weight, properties}, _from, state) do
-    edge = PregelEx.Edge.new(state.id, to_vertex_id, weight, properties)
+  def handle_call({:add_outgoing_edge, to_vertex_id, opts}, _from, state) do
+    edge = PregelEx.Edge.new(state.id, to_vertex_id, opts)
     new_outgoing_edges = Map.put(state.outgoing_edges, to_vertex_id, edge)
     new_state = %{state | outgoing_edges: new_outgoing_edges}
     {:reply, {:ok, edge}, new_state}
@@ -243,11 +248,30 @@ defmodule PregelEx.Vertex do
     {:reply, state.vertex_type, state}
   end
 
-  def create_messages_to_neighbors(state, merged_value) do
-    neighbor_ids = Map.keys(state.outgoing_edges)
+  def create_messages_to_neighbors(state, merged_value, context) do
+    # redefine context to keep api the same
+    context = %{context | value: merged_value}
 
-    Enum.map(neighbor_ids, fn neighbor_id ->
-      Message.new(state.id, neighbor_id, merged_value, state.superstep)
+    state.outgoing_edges
+    |> Enum.filter(fn {_neighbor_id, edge} ->
+      case edge.condition do
+        nil ->
+          # No condition means always send
+          true
+
+        condition_fn when is_function(condition_fn) ->
+          # If condition present, message sending is dependent on
+          # the evaulated function's result
+          condition_fn.(context)
+
+        _ ->
+          # If condition is not a function, do not send
+          false
+      end
+    end)
+    |> Enum.map(fn {_neighbor_id, edge} ->
+      # Create message for each neighbor
+      Message.new(state.id, edge.to_vertex_id, merged_value, state.superstep)
     end)
   end
 end

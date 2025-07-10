@@ -257,9 +257,9 @@ defmodule PregelExTest do
     {:ok, vertex_id_3, _, _} = PregelEx.create_vertex(graph_id, "vertex_3", function)
 
     # Create edges: 1 -> 2 (weight 1.5), 1 -> 3 (weight 2.0), 2 -> 3 (weight 0.5)
-    {:ok, edge_1_2} = PregelEx.create_edge(graph_id, vertex_id_1, vertex_id_2, 1.5)
-    {:ok, _edge_1_3} = PregelEx.create_edge(graph_id, vertex_id_1, vertex_id_3, 2.0)
-    {:ok, _edge_2_3} = PregelEx.create_edge(graph_id, vertex_id_2, vertex_id_3, 0.5)
+    {:ok, edge_1_2} = PregelEx.create_edge(graph_id, vertex_id_1, vertex_id_2, weight: 1.5)
+    {:ok, _edge_1_3} = PregelEx.create_edge(graph_id, vertex_id_1, vertex_id_3, weight: 2.0)
+    {:ok, _edge_2_3} = PregelEx.create_edge(graph_id, vertex_id_2, vertex_id_3, weight: 0.5)
 
     # Verify edge structure
     assert edge_1_2.from_vertex_id == vertex_id_1
@@ -350,9 +350,9 @@ defmodule PregelExTest do
     {:ok, v3_id, _, _} = PregelEx.create_vertex(graph_id, "v3", function)
 
     # Create edges
-    PregelEx.create_edge(graph_id, v1_id, v2_id, 1)
-    PregelEx.create_edge(graph_id, v2_id, v3_id, 1)
-    PregelEx.create_edge(graph_id, v1_id, v3_id, 5)
+    PregelEx.create_edge(graph_id, v1_id, v2_id, weight: 1)
+    PregelEx.create_edge(graph_id, v2_id, v3_id, weight: 1)
+    PregelEx.create_edge(graph_id, v1_id, v3_id, weight: 5)
 
     # Send message from v1 to v3
     PregelEx.send_message(graph_id, v1_id, v3_id, :find_shortest_path)
@@ -448,4 +448,371 @@ defmodule PregelExTest do
 
     assert final.value == %{sum: 2}
   end
+
+  test "011 merging different maps together" do
+    """
+    Testing merging of different values into a map and ensuring the
+    state is kept correctly from start to finish.
+    test "011 conditional edges - evaluates to true" do
+    """
+
+    assert [] = Supervisor.which_children(PregelEx.GraphSupervisor)
+
+    {:ok, graph_id, _graph_pid} =
+      Builder.build("multiple_merge_graph")
+      |> Builder.add_vertex(
+        "start",
+        fn _ -> %{foo: "bar"} end,
+        type: :source
+      )
+      |> Builder.add_vertex("v1", fn _ -> %{zip: "zap"} end)
+      |> Builder.add_vertex(
+        "end",
+        fn context -> context.aggregated_messages end,
+        type: :final
+      )
+      |> Builder.add_edge("start", "v1")
+      |> Builder.add_edge("v1", "end")
+      |> Builder.finish()
+
+    {:ok, info} = PregelEx.run(graph_id)
+    {:ok, final} = PregelEx.get_final_value(graph_id)
+
+    assert final.value == %{foo: "bar", zip: "zap"}
+  end
+
+  test "012 conditional edges - simple" do
+    """
+    This test uses conditional edges to conditionally route messages
+    to specific vertexes.
+    """
+
+    assert [] = Supervisor.which_children(PregelEx.GraphSupervisor)
+
+
+    {:ok, graph_id, _graph_pid} =
+      Builder.build("conditional_graph")
+      |> Builder.add_vertex(
+        "start",
+        fn _ -> %{condition_met: true} end,
+        type: :source
+      )
+      |> Builder.add_vertex(
+        "v1",
+        fn context ->
+          %{message: "Condition met"}
+        end
+      )
+      |> Builder.add_vertex(
+        "v2",
+        fn context ->
+          %{message: "Condition not met"}
+        end
+      )
+      |> Builder.add_vertex(
+        "end",
+        fn context -> context.aggregated_messages end,
+        type: :final
+      )
+      |> Builder.add_edge(
+        "start",
+        "v1",
+        condition: fn context -> context.value.condition_met end
+      )
+      |> Builder.add_edge(
+        "start",
+        "v2",
+        condition: fn context ->
+          IO.puts("Condition not met: #{inspect(context)}")
+          not context.value.condition_met
+        end
+      )
+      |> Builder.add_edge("v1", "end")
+      |> Builder.add_edge("v2", "end")
+      |> Builder.finish()
+
+    {:ok, info} = PregelEx.run(graph_id)
+    {:ok, final} = PregelEx.get_final_value(graph_id)
+
+    assert final.value == %{condition_met: true, message: "Condition met"}
+  end
+
+  test "013 conditional edges - multiple true" do
+    """
+    This test uses conditional edges where multiple conditions evaluate to true,
+    allowing messages to be routed to multiple target vertices.
+    """
+
+    assert [] = Supervisor.which_children(PregelEx.GraphSupervisor)
+
+    {:ok, graph_id, _graph_pid} =
+      Builder.build("conditional_graph_multiple_true")
+      |> Builder.add_vertex(
+        "start",
+        fn _ -> %{condition_a: true, condition_b: true, condition_c: false} end,
+        type: :source
+      )
+      |> Builder.add_vertex(
+        "v1",
+        fn context ->
+          %{message_a: "Condition A met"}
+        end
+      )
+      |> Builder.add_vertex(
+        "v2",
+        fn context ->
+          %{message_b: "Condition B met"}
+        end
+      )
+      |> Builder.add_vertex(
+        "v3",
+        fn context ->
+          %{message_c: "Condition C met"}
+        end
+      )
+      |> Builder.add_vertex(
+        "end",
+        fn context -> context.aggregated_messages end,
+        type: :final
+      )
+      |> Builder.add_edge(
+        "start",
+        "v1",
+        condition: fn context -> context.value.condition_a end
+      )
+      |> Builder.add_edge(
+        "start",
+        "v2",
+        condition: fn context -> context.value.condition_b end
+      )
+      |> Builder.add_edge(
+        "start",
+        "v3",
+        condition: fn context -> context.value.condition_c end
+      )
+      |> Builder.add_edge("v1", "end")
+      |> Builder.add_edge("v2", "end")
+      |> Builder.add_edge("v3", "end")
+      |> Builder.finish()
+
+    {:ok, info} = PregelEx.run(graph_id)
+    {:ok, final} = PregelEx.get_final_value(graph_id)
+
+    # Should have messages from v1 and v2 (both conditions true), but not v3
+    assert final.value.condition_a == true
+    assert final.value.condition_b == true
+    assert final.value.condition_c == false
+    assert Map.has_key?(final.value, :message_a)
+    assert Map.has_key?(final.value, :message_b)
+    refute Map.has_key?(final.value, :message_c)
+  end
+
+  test "014 conditional edges - multiple false" do
+    """
+    This test uses conditional edges where multiple conditions evaluate to false,
+    preventing messages from being routed to most target vertices.
+    """
+
+    assert [] = Supervisor.which_children(PregelEx.GraphSupervisor)
+
+    {:ok, graph_id, _graph_pid} =
+      Builder.build("conditional_graph_multiple_false")
+      |> Builder.add_vertex(
+        "start",
+        fn _ -> %{condition_a: false, condition_b: false, condition_c: true} end,
+        type: :source
+      )
+      |> Builder.add_vertex(
+        "v1",
+        fn context ->
+          %{message_a: "Condition A met"}
+        end
+      )
+      |> Builder.add_vertex(
+        "v2",
+        fn context ->
+          %{message_b: "Condition B met"}
+        end
+      )
+      |> Builder.add_vertex(
+        "v3",
+        fn context ->
+          %{message_c: "Condition C met"}
+        end
+      )
+      |> Builder.add_vertex(
+        "end",
+        fn context -> context.aggregated_messages end,
+        type: :final
+      )
+      |> Builder.add_edge(
+        "start",
+        "v1",
+        condition: fn context -> context.value.condition_a end
+      )
+      |> Builder.add_edge(
+        "start",
+        "v2",
+        condition: fn context -> context.value.condition_b end
+      )
+      |> Builder.add_edge(
+        "start",
+        "v3",
+        condition: fn context -> context.value.condition_c end
+      )
+      |> Builder.add_edge("v1", "end")
+      |> Builder.add_edge("v2", "end")
+      |> Builder.add_edge("v3", "end")
+      |> Builder.finish()
+
+    {:ok, info} = PregelEx.run(graph_id)
+    {:ok, final} = PregelEx.get_final_value(graph_id)
+
+    # Should only have message from v3 (condition_c is true), but not v1 or v2
+    assert final.value.condition_a == false
+    assert final.value.condition_b == false
+    assert final.value.condition_c == true
+    refute Map.has_key?(final.value, :message_a)
+    refute Map.has_key?(final.value, :message_b)
+    assert Map.has_key?(final.value, :message_c)
+
+  end
+
+  test "015 conditional edges - all true" do
+    """
+    This test uses conditional edges where all conditions evaluate to true,
+    allowing messages to be routed to all target vertices.
+    """
+
+    assert [] = Supervisor.which_children(PregelEx.GraphSupervisor)
+
+    {:ok, graph_id, _graph_pid} =
+      Builder.build("conditional_graph_all_true")
+      |> Builder.add_vertex(
+        "start",
+        fn _ -> %{condition_a: true, condition_b: true, condition_c: true} end,
+        type: :source
+      )
+      |> Builder.add_vertex(
+        "v1",
+        fn context ->
+          %{message_a: "Condition A met"}
+        end
+      )
+      |> Builder.add_vertex(
+        "v2",
+        fn context ->
+          %{message_b: "Condition B met"}
+        end
+      )
+      |> Builder.add_vertex(
+        "v3",
+        fn context ->
+          %{message_c: "Condition C met"}
+        end
+      )
+      |> Builder.add_vertex(
+        "end",
+        fn context -> context.aggregated_messages end,
+        type: :final
+      )
+      |> Builder.add_edge(
+        "start",
+        "v1",
+        condition: fn context -> context.value.condition_a end
+      )
+      |> Builder.add_edge(
+        "start",
+        "v2",
+        condition: fn context -> context.value.condition_b end
+      )
+      |> Builder.add_edge(
+        "start",
+        "v3",
+        condition: fn context -> context.value.condition_c end
+      )
+      |> Builder.add_edge("v1", "end")
+      |> Builder.add_edge("v2", "end")
+      |> Builder.add_edge("v3", "end")
+      |> Builder.finish()
+
+    {:ok, info} = PregelEx.run(graph_id)
+    {:ok, final} = PregelEx.get_final_value(graph_id)
+
+    # Should have messages from all vertices (all conditions true)
+    IO.puts("Final value: #{inspect(final.value)}")
+    assert final.value.condition_a == true
+    assert final.value.condition_b == true
+    assert final.value.condition_c == true
+    assert Map.has_key?(final.value, :message_a)
+    assert Map.has_key?(final.value, :message_b)
+    assert Map.has_key?(final.value, :message_c)
+  end
+
+  test "016 conditional edges - all false" do
+    """
+    This test uses conditional edges where all conditions evaluate to false,
+    preventing messages from being routed to any target vertices.
+    """
+
+    assert [] = Supervisor.which_children(PregelEx.GraphSupervisor)
+
+    {:ok, graph_id, _graph_pid} =
+      Builder.build("conditional_graph_all_false")
+      |> Builder.add_vertex(
+        "start",
+        fn _ -> %{condition_a: false, condition_b: false, condition_c: false} end,
+        type: :source
+      )
+      |> Builder.add_vertex(
+        "v1",
+        fn context ->
+          %{message_a: "Condition A met"}
+        end
+      )
+      |> Builder.add_vertex(
+        "v2",
+        fn context ->
+          %{message_b: "Condition B met"}
+        end
+      )
+      |> Builder.add_vertex(
+        "v3",
+        fn context ->
+          %{message_c: "Condition C met"}
+        end
+      )
+      |> Builder.add_vertex(
+        "end",
+        fn context -> context.aggregated_messages end,
+        type: :final
+      )
+      |> Builder.add_edge(
+        "start",
+        "v1",
+        condition: fn context -> context.value.condition_a end
+      )
+      |> Builder.add_edge(
+        "start",
+        "v2",
+        condition: fn context -> context.value.condition_b end
+      )
+      |> Builder.add_edge(
+        "start",
+        "v3",
+        condition: fn context -> context.value.condition_c end
+      )
+      |> Builder.add_edge("v1", "end")
+      |> Builder.add_edge("v2", "end")
+      |> Builder.add_edge("v3", "end")
+      |> Builder.finish()
+
+    {:ok, info} = PregelEx.run(graph_id)
+    {:ok, final} = PregelEx.get_final_value(graph_id)
+
+    # Should have no messages from any vertices (all conditions false)
+    assert final.value == nil
+  end
+
+
 end

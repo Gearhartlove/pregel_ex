@@ -82,8 +82,8 @@ defmodule PregelEx do
       {:ok, edge} = PregelEx.create_edge(graph_id, "vtx.abc", "vtx.def", 2.5)
       {:ok, edge} = PregelEx.create_edge(graph_id, "vtx.abc", "vtx.def", 1, %{type: "friendship"})
   """
-  def create_edge(graph_id, from_vertex_id, to_vertex_id, weight \\ 1, properties \\ %{}) do
-    Graph.create_edge(graph_id, from_vertex_id, to_vertex_id, weight, properties)
+  def create_edge(graph_id, from_vertex_id, to_vertex_id, opts \\ []) do
+    Graph.create_edge(graph_id, from_vertex_id, to_vertex_id, opts)
   end
 
   @doc """
